@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
+
+test('Data resmi kosong tetap kosong dan dokumentasi tidak memakai contoh',()=>{const c=context();vm.runInContext("DB=build({penerima_manfaat:[],target:[],kegiatan:[],indikator:[],info:[{kunci:'periode_terbit',nilai:'2026-09'},{kunci:'tahun',nilai:'2026'}]});SRC='sheet'",c);assert.equal(vm.runInContext('sum(DB.pm)',c),0);assert.match(vm.runInContext('PG[7]()',c),/Belum ada dokumentasi terverifikasi/);assert.doesNotMatch(vm.runInContext('PG[7]()',c),/Demo Masak/);});
+test('Teks dokumentasi dari Sheet di-escape sebelum ditampilkan',()=>{const c=context();vm.runInContext("SRC='sheet';DB.docs=[{tanggal:'2026-09-01',kabupaten:'Mimika',kampung:'Atuka',judul_id:'<script>bad</script>',deskripsi_id:'<img onerror=bad>',caption_id:'caption'}]",c);const html=vm.runInContext('PG[7]()',c);assert.ok(html.includes('&lt;script&gt;'));assert.ok(!html.includes('<script>bad'));});
 const code=readFileSync(new URL('../assets/dashboard.js',import.meta.url),'utf8');
 function context(){const c=vm.createContext({document:{addEventListener(){}},addEventListener(){},URLSearchParams,location:{hash:'',search:''},Date,console});vm.runInContext(code,c);vm.runInContext('DB=build(generateSampleData())',c);return c;}
 test('Kode akses PTFI2026 sesuai hash',()=>assert.equal(vm.runInContext('ACCESS_HASH',context()),createHash('sha256').update('PTFI2026').digest('hex')));

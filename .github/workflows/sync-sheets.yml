@@ -1,0 +1,37 @@
+name: Sinkronisasi Google Sheet
+on:
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: google-sheet-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pasang akses Google
+        run: python -m pip install 'google-auth[requests]>=2.38,<3'
+      - name: Uji filter publikasi
+        run: python -m unittest discover -s tests -p 'test_sync_sheets.py'
+      - name: Ambil data terverifikasi
+        env:
+          GOOGLE_SHEETS_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SHEETS_SERVICE_ACCOUNT }}
+        run: python scripts/sync_sheets.py
+      - name: Simpan perubahan
+        run: |
+          git add data/
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "data: sinkronisasi Google Sheet terverifikasi"
+          git push origin HEAD:main
