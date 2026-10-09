@@ -50,6 +50,10 @@ Build menghasilkan `dist/` berisi berkas situs yang dapat diunggah ke static hos
 
 ## Menghubungkan data
 
+Integrasi khusus Sheet PASTI Papua kini disiapkan: data VERIFIED disalin ke GitHub sekitar setiap 30 menit dan dibaca otomatis oleh dashboard. Aktifkan akses baca sekali mengikuti [panduan singkat](GOOGLE_SHEETS_SETUP.md). Nama petugas, bukti internal dan URL foto Drive tidak diekspor. Teks dokumentasi hanya dipublikasikan jika VERIFIED dan izin YA.
+
+Sinkronisasi belum aktif sebelum akses Google dikonfigurasi dan perubahan integrasi digabungkan ke main.
+
 Klik **⚙ Sumber data** di header. Tersedia:
 
 1. **Excel** dengan lima sheet: `penerima_manfaat`, `target`, `kegiatan`, `indikator`, `info`.

@@ -57,7 +57,7 @@ function updateLockUI() {
   }
 }
 
-const CONFIG = { penerima_manfaat: '', target: '', kegiatan: '', indikator: '', info: '' };
+const CONFIG = { penerima_manfaat: 'data/penerima_manfaat.csv', target: 'data/target.csv', kegiatan: 'data/kegiatan.csv', indikator: 'data/indikator.csv', info: 'data/info.csv' };
 const I = {
   id: {
     sub: 'Dashboard capaian untuk PT Freeport Indonesia', kab: 'Kabupaten', cat: 'Kategori', sex: 'Jenis kelamin', per: 'Periode s.d.', all: 'Semua', reset: 'Reset', P: 'Perempuan', L: 'Laki-laki', target: 'Target', reach: 'Terjangkau', ofT: 'dari target', act: 'Kegiatan', src: 'Sumber', sample: 'Data contoh', sheet: 'Spreadsheet', until: 'Data s.d.', page: 'Halaman', demo: 'DATA CONTOH / SAMPLE DATA',
@@ -496,7 +496,7 @@ function build(o) {
     pm: pm.filter(r => r.p <= pub && r.p.startsWith(year)),
     tg: tg.filter(r => r.y === year),
     kg: kg.filter(r => r.p <= pub && r.p.startsWith(year)),
-    ind, info, pub, year,
+    ind, info, pub, year, docs: o.dokumentasi || [],
     months: months.filter(m => m <= pub && m.startsWith(year))
   };
 }
@@ -779,6 +779,9 @@ const PG = [
   },
   () => { /* 2: Overview */
     const l = L(); const { pm, tg, kg } = F();
+    if (SRC === 'sheet' && !DB.pm.length && !DB.tg.length && !DB.kg.length) {
+      return `<div class="pc"><div class="v"><h2>${LG === 'en' ? 'No approved results yet' : 'Belum ada capaian terverifikasi'}</h2><p>${LG === 'en' ? 'Enter data in the Google Sheet and ask MEAL to verify it. Approved results will appear after synchronization.' : 'Isi data di Google Sheet dan minta MEAL memverifikasi. Capaian akan tampil setelah sinkronisasi berikutnya.'}</p></div></div>`;
+    }
     const T = sum(tg), C = sum(pm);
     const A = sum(pm, r => r.c === 'Anak'), At = sum(tg, r => r.c === 'Anak');
 
@@ -859,7 +862,7 @@ const PG = [
         <div class="l">${l.reach} (Total)</div>
         <div class="n">${num(C)} <small>/ ${num(T)}</small></div>
         <div class="pb"><i style="width:${Math.min(100, pct(C, T))}%"></i></div>
-        <div class="s">${pct(C, T)}% ${l.ofT} ${T - C > 0 ? `· ${num(T - C)} target tersisa` : '· Target terpenuhi'}</div>
+        <div class="s">${T > 0 ? `${pct(C, T)}% ${l.ofT} ${T - C > 0 ? `· ${num(T - C)} target tersisa` : '· Target terpenuhi'}` : (LG === 'en' ? 'No approved target is available' : 'Belum ada target terverifikasi')}</div>
       </div>
 
       <!-- KPI 2: Anak Balita (0–59 bulan) -->
@@ -1352,6 +1355,15 @@ const PG = [
   },
   () => { /* 9: Documentation & API */
     const l = L();
+    if (SRC === 'sheet') {
+      const approvedDocs = (DB.docs || []).filter(d => (!S.kab || S.kab === 'Semua' || d.kabupaten === S.kab) && (!S.per || d.tanggal.slice(0, 7) <= S.per));
+      return `<div class="pc" style="overflow:auto"><h2>${LG === 'en' ? 'Approved documentation' : 'Dokumentasi terverifikasi'}</h2>
+        ${approvedDocs.length ? approvedDocs.map(d => `<article class="v"><h3>${esc(LG === 'en' ? d.title_en || d.judul_id : d.judul_id)}</h3>
+          <p>${esc(d.tanggal)} · ${esc(d.kampung)}, ${esc(d.kabupaten)}</p>
+          <p>${esc(LG === 'en' ? d.description_en || d.deskripsi_id : d.deskripsi_id)}</p>
+          <p>${esc(LG === 'en' ? d.caption_en || d.caption_id : d.caption_id)}</p></article>`).join('') : `<p>${LG === 'en' ? 'No approved documentation is available.' : 'Belum ada dokumentasi terverifikasi.'}</p>`}
+        <p>${LG === 'en' ? 'Internal photos and evidence remain private.' : 'Foto dan bukti internal tersimpan privat.'}</p></div>`;
+    }
     const docs = getFilteredDocs();
     const curDoc = docs[DOC_INDEX] || docs[0] || FIELD_DOCS[0];
 
@@ -2275,16 +2287,21 @@ async function initDashboard() {
   SRC = 'sample';
   render();
   const keys = Object.keys(QK);
-  if (keys.some(k => q.get(k))) {
+  if (keys.some(k => q.get(k) || CONFIG[QK[k]])) {
     try {
       const values = await Promise.all(keys.map(async k => {
-        if (!q.get(k)) return [];
-        const response = await fetch(q.get(k), {cache:'no-store'});
+        const source = q.get(k) || CONFIG[QK[k]];
+        if (!source) return [];
+        const response = await fetch(source, {cache:'no-store'});
         if (!response.ok) throw new Error('HTTP ' + response.status);
         return toObjs(csv(await response.text()));
       }));
       const input = Object.fromEntries(keys.map((k,i) => [QK[k], values[i]]));
-      if (!input.penerima_manfaat.length) throw new Error('penerima_manfaat kosong');
+      if (!keys.some(k => q.get(k))) {
+        const docsResponse = await fetch('data/dokumentasi.csv', {cache:'no-store'});
+        if (!docsResponse.ok) throw new Error('HTTP ' + docsResponse.status);
+        input.dokumentasi = toObjs(csv(await docsResponse.text()));
+      }
       DB = build(input); SRC = 'sheet'; render();
     } catch (error) {
       toast((LG === 'en' ? 'Data connection failed; showing sample data: ' : 'Koneksi data gagal; menampilkan data contoh: ') + error.message);
