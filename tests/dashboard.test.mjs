@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
+test('Ringkasan resmi kosong tidak menyatakan target terpenuhi',()=>{const c=context();vm.runInContext("DB=build({penerima_manfaat:[],target:[],kegiatan:[],indikator:[],info:[{kunci:'periode_terbit',nilai:'2026-09'},{kunci:'tahun',nilai:'2026'}]});SRC='sheet'",c);const html=vm.runInContext('PG[1]()',c);assert.match(html,/Belum ada capaian terverifikasi/);assert.doesNotMatch(html,/Target terpenuhi/);});
 
 test('Data resmi kosong tetap kosong dan dokumentasi tidak memakai contoh',()=>{const c=context();vm.runInContext("DB=build({penerima_manfaat:[],target:[],kegiatan:[],indikator:[],info:[{kunci:'periode_terbit',nilai:'2026-09'},{kunci:'tahun',nilai:'2026'}]});SRC='sheet'",c);assert.equal(vm.runInContext('sum(DB.pm)',c),0);assert.match(vm.runInContext('PG[7]()',c),/Belum ada dokumentasi terverifikasi/);assert.doesNotMatch(vm.runInContext('PG[7]()',c),/Demo Masak/);});
 test('Teks dokumentasi dari Sheet di-escape sebelum ditampilkan',()=>{const c=context();vm.runInContext("SRC='sheet';DB.docs=[{tanggal:'2026-09-01',kabupaten:'Mimika',kampung:'Atuka',judul_id:'<script>bad</script>',deskripsi_id:'<img onerror=bad>',caption_id:'caption'}]",c);const html=vm.runInContext('PG[7]()',c);assert.ok(html.includes('&lt;script&gt;'));assert.ok(!html.includes('<script>bad'));});

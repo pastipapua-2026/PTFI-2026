@@ -779,6 +779,9 @@ const PG = [
   },
   () => { /* 2: Overview */
     const l = L(); const { pm, tg, kg } = F();
+    if (SRC === 'sheet' && !DB.pm.length && !DB.tg.length && !DB.kg.length) {
+      return `<div class="pc"><div class="v"><h2>${LG === 'en' ? 'No approved results yet' : 'Belum ada capaian terverifikasi'}</h2><p>${LG === 'en' ? 'Enter data in the Google Sheet and ask MEAL to verify it. Approved results will appear after synchronization.' : 'Isi data di Google Sheet dan minta MEAL memverifikasi. Capaian akan tampil setelah sinkronisasi berikutnya.'}</p></div></div>`;
+    }
     const T = sum(tg), C = sum(pm);
     const A = sum(pm, r => r.c === 'Anak'), At = sum(tg, r => r.c === 'Anak');
 
@@ -859,7 +862,7 @@ const PG = [
         <div class="l">${l.reach} (Total)</div>
         <div class="n">${num(C)} <small>/ ${num(T)}</small></div>
         <div class="pb"><i style="width:${Math.min(100, pct(C, T))}%"></i></div>
-        <div class="s">${pct(C, T)}% ${l.ofT} ${T - C > 0 ? `· ${num(T - C)} target tersisa` : '· Target terpenuhi'}</div>
+        <div class="s">${T > 0 ? `${pct(C, T)}% ${l.ofT} ${T - C > 0 ? `· ${num(T - C)} target tersisa` : '· Target terpenuhi'}` : (LG === 'en' ? 'No approved target is available' : 'Belum ada target terverifikasi')}</div>
       </div>
 
       <!-- KPI 2: Anak Balita (0–59 bulan) -->
