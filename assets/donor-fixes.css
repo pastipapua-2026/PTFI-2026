@@ -1,0 +1,123 @@
+/* PTFI-2026 v2: compact dropdowns + wide activity table, loaded last. */
+/* Fix overly tall checkbox options (and inherited dashboard element spacing). */
+#ptfiGlobalFilters .ptfi-filter-options {
+  box-sizing: border-box;
+  width: min(290px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: min(268px, 45dvh);
+  padding: 6px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: block;
+  z-index: 100;
+}
+#ptfiGlobalFilters .ptfi-option {
+  box-sizing: border-box;
+  display: flex !important;
+  flex-direction: row;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  flex: 0 0 auto !important;
+  gap: 9px !important;
+  min-height: 36px !important;
+  height: auto !important;
+  max-height: none;
+  margin: 0 !important;
+  padding: 7px 9px !important;
+  line-height: 1.25 !important;
+  font-size: 12px !important;
+  white-space: normal;
+}
+#ptfiGlobalFilters .ptfi-option input[type="checkbox"] {
+  box-sizing: border-box;
+  flex: 0 0 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+#ptfiGlobalFilters .ptfi-option-all { margin: 0 0 4px !important; padding-bottom: 9px !important; }
+#ptfiGlobalFilters .ptfi-dropdown-foot { margin-top: 4px; padding-top: 5px; }
+#ptfiGlobalFilters .ptfi-dropdown-foot button { min-height: 31px; padding: 6px 11px; }
+
+/* Anchor village menu to the right edge of its input, away from viewport edge. */
+#ptfiGlobalFilters [data-field="village"] .ptfi-filter-options {
+  left: auto;
+  right: 0;
+  width: min(268px, calc(100vw - 32px));
+}
+#ptfiGlobalFilters { isolation: isolate; }
+#ptfiGlobalFilters .ptfi-filter-item,
+#ptfiGlobalFilters .ptfi-filter-dropdown { overflow: visible; }
+
+/* On small devices the toolbar remains within the usable main viewport. */
+@media(max-width:850px) {
+  #ptfiGlobalFilters { padding: 8px 10px; }
+  #ptfiGlobalFilters .ptfi-filter-grid { gap: 7px; }
+  #ptfiGlobalFilters .ptfi-filter-options { max-height: min(248px, 40dvh); }
+}
+@media(max-width:480px) {
+  #ptfiGlobalFilters .ptfi-filter-options { width: min(248px, calc(100vw - 25px)); }
+  #ptfiGlobalFilters [data-field="village"] .ptfi-filter-options { width: min(248px, calc(100vw - 25px)); }
+}
+
+/* Slide 07 is now a full-width participant detail table; no per-output chart. */
+.page[data-page="6"] .pc.ptfi-activity-layout {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 9px !important;
+  min-height: 0 !important;
+  min-width: 0;
+  overflow: hidden !important;
+  padding: 10px 18px !important;
+}
+.ptfi-activity-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 9px; flex: 0 0 auto; }
+.ptfi-activity-summary > div { display:flex;flex-direction:column;gap:1px;border:1px solid var(--line);border-radius:9px;background:var(--card);padding:9px 12px;min-width:0; }
+.ptfi-activity-summary small { color:var(--mut);font-size:10px;font-weight:600; }
+.ptfi-activity-summary strong { color:var(--ink);font-weight:800;font-size:20px;line-height:1.2; }
+.ptfi-activity-summary span { color:var(--mut);font-size:9px; }
+.ptfi-activity-table-card { flex:1 1 auto;min-height:0;min-width:0;display:flex;flex-direction:column;overflow:hidden;padding:11px 13px!important; }
+.ptfi-activity-head { display:flex;justify-content:space-between;align-items:end;gap:14px;margin-bottom:8px; }
+.ptfi-activity-head h2 { font-size:16px;line-height:1.2;font-weight:800;margin:0 0 3px; }
+.ptfi-activity-head p { font-size:10px;line-height:1.4;color:var(--mut);margin:0; }
+.ptfi-activity-caption { white-space:nowrap;font-size:10px;font-weight:700;color:var(--mut);padding-bottom:2px; }
+.ptfi-activity-warning { border:1px solid var(--or3);border-left:3px solid var(--or);background:var(--or4);border-radius:6px;padding:5px 8px;font-size:10px;line-height:1.35;margin:0 0 6px;color:var(--ink); }
+.ptfi-activity-error { font-weight:700; }
+.ptfi-activity-scroll { flex:1 1 auto;min-height:0;min-width:0;overflow:auto;overscroll-behavior:contain;border:1px solid var(--line);border-radius:8px; }
+.ptfi-activity-table { width:100%;border-collapse:separate;border-spacing:0;min-width:970px;font-size:10.5px; }
+.ptfi-activity-table th { color:var(--ink);font-size:10px;font-weight:800;line-height:1.4;vertical-align:middle;border-bottom:1px solid var(--line);border-right:1px solid var(--line);background:var(--soft);padding:9px 8px;text-align:left; }
+.ptfi-activity-table thead tr:first-child th { top:0;position:sticky;z-index:4; }
+.ptfi-activity-table thead tr:nth-child(2) th { top:38px;position:sticky;z-index:3; }
+.ptfi-activity-table .ptfi-activity-group { text-align:center; }
+.ptfi-activity-table td { padding:9px 8px;border-bottom:1px solid var(--line);color:var(--ink);background:var(--card);vertical-align:middle;line-height:1.4; }
+.ptfi-activity-table tbody tr:nth-child(even) td { background:var(--soft); }
+.ptfi-activity-table .ptfi-activity-n { width:42px;white-space:nowrap;text-align:center; }
+.ptfi-activity-name { font-weight:650;min-width:190px;max-width:270px; }
+.ptfi-activity-date { white-space:nowrap;min-width:110px; }
+.ptfi-activity-location { min-width:150px;max-width:230px; }
+.ptfi-activity-number { text-align:right!important;white-space:nowrap;width:86px;font-variant-numeric:tabular-nums; }
+.ptfi-activity-total { font-weight:800;color:var(--or)!important; }
+.ptfi-activity-empty { padding:32px 15px!important;text-align:center;color:var(--mut)!important; }
+.ptfi-activity-pagination { display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px;font-size:10px;color:var(--mut);flex-wrap:wrap; }
+.ptfi-activity-page-actions { display:flex;align-items:center;gap:10px;white-space:nowrap; }
+.ptfi-activity-page-actions button { background:var(--card);border:1px solid var(--line);padding:5px 10px;border-radius:6px;font-size:10px;font-weight:700;color:var(--ink); }
+.ptfi-activity-page-actions button:disabled { opacity:.35;cursor:not-allowed; }
+@media(max-width:850px) {
+  .ptfi-activity-head { flex-wrap:wrap;align-items:flex-start; }
+  .ptfi-activity-summary { gap:6px; }
+  .ptfi-activity-summary > div { padding:7px 8px; }
+  .ptfi-activity-summary strong { font-size:16px; }
+  .ptfi-activity-pagination { font-size:9px; }
+}
+@media print {
+  #ptfiGlobalFilters { display:none!important; }
+  .page[data-page="6"] .pc.ptfi-activity-layout { overflow:visible!important; }
+  .ptfi-activity-table-card { overflow:visible!important; }
+  .ptfi-activity-scroll { overflow:visible!important; }
+  .ptfi-activity-table { min-width:0!important;font-size:10px; }
+  .ptfi-activity-page-actions { display:none!important; }
+  .ptfi-activity-warning { break-inside:avoid; }
+}
+
+#ptfiGlobalFilters .ptfi-dropdown-up .ptfi-filter-options { top:auto;bottom:calc(100% + 5px); }
