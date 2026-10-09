@@ -1,0 +1,15 @@
+{
+  "name": "pasti-papua-ptfi-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dashboard capaian PASTI-Papua untuk PT Freeport Indonesia",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "build": "node scripts/build.mjs",
+    "check": "node --check assets/dashboard.js",
+    "test": "node --test tests/dashboard.test.mjs",
+    "preview": "node scripts/serve.mjs dist"
+  },
+  "engines": { "node": ">=20" }
+}

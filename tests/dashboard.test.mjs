@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+const code=readFileSync(new URL('../assets/dashboard.js',import.meta.url),'utf8');
+function context(){const c=vm.createContext({document:{addEventListener(){}},addEventListener(){},URLSearchParams,location:{hash:'',search:''},Date,console});vm.runInContext(code,c);vm.runInContext('DB=build(generateSampleData())',c);return c;}
+test('Kode akses PTFI2026 sesuai hash',()=>assert.equal(vm.runInContext('ACCESS_HASH',context()),createHash('sha256').update('PTFI2026').digest('hex')));
+test('Total data contoh dan komposisi tetap utuh',()=>{const c=context();assert.equal(vm.runInContext('sum(DB.pm)',c),4367);assert.equal(vm.runInContext('sum(DB.tg)',c),6420);assert.equal(vm.runInContext('sum(DB.kg)',c),263);assert.equal(vm.runInContext("sum(DB.pm,r=>r.s==='P')+sum(DB.pm,r=>r.s==='L')",c),4367);assert.equal(vm.runInContext('AGES.reduce((n,a)=>n+sum(DB.pm,r=>r.a===a),0)',c),4367);});
+test('Filter minggu hanya mengambil bulan laporan, bukan semua bulan',()=>{const c=context();vm.runInContext("S.week='1';S.per='2026-08'",c);assert.ok(vm.runInContext("F().pm.length>0 && F().pm.every(r=>r.p==='2026-08' && String(r.w)==='1')",c));assert.ok(vm.runInContext("F().kg.every(r=>r.p==='2026-08' && String(r.w)==='1')",c));vm.runInContext("S.per=''",c);assert.ok(vm.runInContext("F().pm.every(r=>r.p===DB.pub && String(r.w)==='1')",c));});
+test('Filter kabupaten dan jenis kelamin tetap konsisten',()=>{const c=context();vm.runInContext("S.kab='Mimika';S.sex='P'",c);assert.ok(vm.runInContext("F().pm.every(r=>r.k==='Mimika' && r.s==='P')",c));assert.ok(vm.runInContext("F().tg.every(r=>r.k==='Mimika' && r.s==='P')",c));});
+test('Hash halaman tidak valid tidak membuat halaman kosong',()=>{const c=context();vm.runInContext("location.hash='#p=abc';readHash()",c);assert.equal(vm.runInContext('PAGE',c),1);});
+test('Delapan slide, nomor 03 dihapus dan nomor 09 Dokumentasi',()=>{const c=context();assert.equal(vm.runInContext('PG.length',c),8);assert.equal(vm.runInContext('I.id.p.length',c),8);assert.equal(vm.runInContext('I.id.p[7]',c),'Dokumentasi');assert.equal(vm.runInContext('JSON.stringify(SLIDE_NUMBERS)',c),'[1,2,4,5,6,7,8,9]');vm.runInContext("location.hash='#p=8';readHash()",c);assert.equal(vm.runInContext('PAGE',c),7);vm.runInContext("location.hash='#p=2';readHash()",c);assert.equal(vm.runInContext('PAGE',c),1);});

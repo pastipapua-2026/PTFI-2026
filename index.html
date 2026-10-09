@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#182338">
+<link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+<title>PASTI-Papua PTFI Dashboard</title>
+<meta name="description" content="Executive stunting reduction results dashboard for PT Freeport Indonesia and Wahana Visi Indonesia covering Mimika, Nabire, and Asmat.">
+<meta property="og:title" content="PASTI-Papua PTFI Dashboard">
+<meta property="og:description" content="Executive stunting reduction results dashboard for PT Freeport Indonesia and Wahana Visi Indonesia covering Mimika, Nabire, and Asmat.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
+<link rel="stylesheet" href="./assets/dashboard.css?v=6">
+</head>
+<body>
+<div id="authGate">
+  <div class="authBox">
+    <div class="authLogo" style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:18px">
+      <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#FF5515,#D03B00);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:19px;box-shadow:0 4px 14px rgba(255,85,21,0.3)">P</div>
+      <div style="text-align:left;line-height:1.2">
+        <div style="font-weight:900;font-size:16.5px;color:var(--ink);letter-spacing:-0.3px">PASTI-PAPUA</div>
+        <div style="font-weight:800;font-size:11.5px;color:#FF5515;letter-spacing:1px">DASHBOARD PTFI</div>
+      </div>
+    </div>
+    <h2 id="authTitle">PASTI-Papua Dashboard</h2>
+    <p id="authSub">Masukkan kode akses untuk membuka data capaian program bagi PT Freeport Indonesia.</p>
+    <form onsubmit="handleAuth(event)">
+      <input type="password" id="authInput" aria-label="Kode akses" placeholder="KODE AKSES / ACCESS CODE" autocomplete="off" required>
+      <button type="submit" id="authBtn">Masuk / Enter</button>
+      <div class="authErr" id="authErr" role="status" aria-live="polite"></div>
+    </form>
+    <small style="display:block;margin-top:14px;color:var(--mut);font-size:11px">Akses terbatas untuk tim donor PTFI & pelaksana WVI</small>
+  </div>
+</div>
+
+<header class="bar" inert>
+  <button class="sb-toggle" id="barSbToggle" onclick="toggleSidebar()" title="Buka/Tutup Navigasi Halaman" aria-label="Buka atau tutup navigasi"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+  <div style="display:flex;align-items:center;gap:9px">
+    <div style="width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,#FF5515,#D03B00);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:14px;box-shadow:0 2px 6px rgba(255,85,21,0.25)">P</div>
+    <div class="bt" style="border-left:none;padding-left:0">
+      <b style="line-height:1.2">PASTI-Papua <span style="font-weight:600;font-size:12px;color:var(--mut)">· PTFI</span></b>
+      <span id="sub"></span>
+    </div>
+  </div>
+  <div class="tools" id="tools"></div>
+</header>
+
+<div id="coverModal" class="cover-modal">
+  <div class="cover-card">
+    <div class="cover-head">
+      <div>
+        <div class="cover-badges">
+          <span style="background:var(--or);color:#fff;font-weight:800;font-size:10.5px;padding:3px 8px;border-radius:4px">PROGRAM DONOR PTFI</span>
+          <span style="font-size:11px;color:var(--mut);font-weight:600">Periode: Sep 2024 – Okt 2027</span>
+        </div>
+        <h1 style="margin:4px 0 2px;font-size:22px;font-weight:800;letter-spacing:-.4px">PASTI-Papua</h1>
+        <div style="font-size:12px;color:var(--mut);font-weight:600">Partnership to Accelerate Stunting Reduction in Indonesia – Papua</div>
+      </div>
+      <button class="cover-close" onclick="closeCover()" aria-label="Tutup Cover"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="cover-body">
+      <div>
+        <h4 style="margin:0 0 4px;font-size:11px;font-weight:800;text-transform:uppercase;color:var(--or)">Tujuan Program / Goal Statement</h4>
+        <p style="margin:0;font-size:12.5px;line-height:1.5;font-weight:500" id="coverGoalText"></p>
+      </div>
+      <div class="cover-grid3">
+        <div class="cover-box">
+          <b style="font-size:12px;color:var(--or)">Pilar 1: Gizi Komunitas</b>
+          <p style="margin:3px 0 0;font-size:11px;color:var(--mut);line-height:1.4">Peningkatan praktik kesehatan & gizi berbasis keluarga dan agen perubahan lokal.</p>
+        </div>
+        <div class="cover-box">
+          <b style="font-size:12px;color:var(--or)">Pilar 2: Layanan Primer</b>
+          <p style="margin:3px 0 0;font-size:11px;color:var(--mut);line-height:1.4">Penguatan kapasitas kader posyandu & nakes serta tata laksana rujukan terpadu.</p>
+        </div>
+        <div class="cover-box">
+          <b style="font-size:12px;color:var(--or)">Pilar 3: Tata Kelola Multipihak</b>
+          <p style="margin:3px 0 0;font-size:11px;color:var(--mut);line-height:1.4">Kolaborasi multipihak & konvergensi program RAN PASTI pencegahan stunting daerah.</p>
+        </div>
+      </div>
+      <div style="background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:12px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <b style="font-size:11.5px">3 Kabupaten Intervensi & 22 Kampung Dampingan</b>
+          <span style="font-size:10.5px;color:var(--or);font-weight:700">Target Tahunan: 6.420 Jiwa</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:11px">
+          <div>
+            <b style="color:var(--ink)">Mimika (11 Kampung)</b>
+            <div style="font-size:10px;color:var(--mut);margin-top:2px">Atuka, Ayuka, Fanamo, Keakwa, Kokonao, Koperapoka, Nawaripi, Nayaro, Ohotya, Omawita, Tipuka</div>
+          </div>
+          <div>
+            <b style="color:var(--ink)">Nabire (7 Kampung)</b>
+            <div style="font-size:10px;color:var(--mut);margin-top:2px">Makimi, Air Mandidi, Bumi Wonorejo, Siriwini, Wadio, Kali Harapan, Bumi Raya</div>
+          </div>
+          <div>
+            <b style="color:var(--ink)">Asmat (4 Kampung)</b>
+            <div style="font-size:10px;color:var(--mut);margin-top:2px">Akamar, Birak, Sesakam, Warse</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cover-foot">
+      <div style="font-size:10.5px;color:var(--mut)">
+        Didanai oleh <b>PT Freeport Indonesia</b> · Dilaksanakan oleh <b>Wahana Visi Indonesia</b>
+      </div>
+      <button class="cover-btn" onclick="closeCover()">
+        <span>Buka Dashboard / Enter Dashboard</span>
+        <span>→</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="app-shell" inert>
+  <aside class="sb" id="sidebar">
+    <div class="sb-header">
+      <span class="sb-title" id="sbTitle">Halaman / Pages</span>
+      <button class="sb-toggle" onclick="toggleSidebar()" title="Perkecil/Perbesar Menu" aria-label="Lipat atau perluas navigasi"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m14 6-6 6 6 6"/></svg></button>
+    </div>
+    <nav class="sb-nav" id="sbNav"></nav>
+    <div class="sb-divider"></div>
+    <div style="padding:3px 5px">
+      <button onclick="openCover()" style="width:100%;border:0;background:transparent;border-radius:8px;padding:7px 9px;display:flex;align-items:center;gap:10px;color:var(--ink);font-size:11.5px;font-weight:600;cursor:pointer;transition:background .15s" title="Buka Cover Proyek">
+        <span class="sb-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v16M3 3h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5v16h-5a4 4 0 0 0-4 2 4 4 0 0 0-4-2H3Z"/></svg></span>
+        <span class="sb-text">Cover Proyek</span>
+      </button>
+    </div>
+    <div class="sb-footer" id="sbFooter">
+      <div style="font-weight:700;color:var(--ink)">PASTI-Papua</div>
+      <div>WVI & PTFI</div>
+      <div style="margin-top:2px;color:var(--or);font-weight:700">Sep 2024 – Okt 2027</div>
+    </div>
+  </aside>
+  <div class="main-viewport">
+    <main id="stage"></main>
+  </div>
+</div>
+
+<div class="ovl" id="ovl" onclick="closeP()"></div>
+<aside class="pn2" id="pn" aria-label="Sumber data"></aside>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+<script src="./assets/dashboard.js?v=6"></script>
+</body>
+</html>
