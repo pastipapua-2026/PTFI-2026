@@ -1,0 +1,133 @@
+/* PTFI-2026 V3 · Dashboard sections condensed for donor presentation. */
+
+/* 02 — remove achievement gauge and highlights; expand cumulative trend. */
+.page[data-page="1"] > .pc.g2.ptfi-overview-clean {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  grid-template-rows: auto !important;
+  align-items: stretch;
+  min-width: 0;
+}
+.page[data-page="1"] .ptfi-overview-clean > .ptfi-overview-trend-wide {
+  grid-column: 1 / 4 !important;
+  grid-row: auto !important;
+  min-width: 0;
+}
+.page[data-page="1"] .ptfi-overview-clean > .ptfi-overview-regencies {
+  grid-column: 4 / 5 !important;
+  grid-row: auto !important;
+  min-width: 0;
+}
+.page[data-page="1"] .ptfi-overview-trend-wide .vb.chbox,
+.page[data-page="1"] .ptfi-overview-trend-wide .chbox {
+  height: 325px !important;
+  min-height: 325px !important;
+}
+.page[data-page="1"] .ptfi-overview-trend-wide svg {
+  height: 325px !important;
+  min-height: 0 !important;
+  max-width: 100%;
+}
+
+/* 05 — remove optional priority-panel; use saved space for the target-group matrix. */
+.page[data-page="4"] > .pc.ptfi-target-groups-clean {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) !important;
+  grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+  min-width: 0;
+}
+.page[data-page="4"] > .pc.ptfi-target-groups-clean > .v:first-child {
+  grid-column: 1 !important;
+  grid-row: 1 / 3 !important;
+  min-width: 0;
+}
+.page[data-page="4"] > .pc.ptfi-target-groups-clean > .v:nth-child(2) {
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+}
+.page[data-page="4"] > .pc.ptfi-target-groups-clean > .v:nth-child(3) {
+  grid-column: 2 !important;
+  grid-row: 2 !important;
+}
+.page[data-page="4"] > .pc.ptfi-target-groups-clean > .v:first-child .tsc {
+  overflow-x: auto;
+  min-height: 0;
+}
+
+/* 08 — remove the small chart; retain and enlarge the actual monthly table. */
+.page[data-page="7"] > .pc.g8.ptfi-monthly-full-table {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  gap: 0 !important;
+  min-height: 0;
+}
+.page[data-page="7"] .ptfi-monthly-wide-card {
+  display: flex;
+  flex-direction: column;
+  grid-column: 1 / -1 !important;
+  grid-row: 1 !important;
+  min-width: 0;
+  min-height: 0;
+  padding: 18px 22px;
+}
+.page[data-page="7"] .ptfi-monthly-wide-card h3 { font-size: 17px; margin: 0; }
+.page[data-page="7"] .ptfi-monthly-wide-card .tsc {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  margin-top: 14px;
+  max-height: none;
+}
+.page[data-page="7"] .ptfi-monthly-expanded-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 610px;
+}
+.page[data-page="7"] .ptfi-monthly-expanded-table th {
+  padding: 12px 11px;
+  font-size: 12px;
+  background: var(--soft);
+  position: sticky;
+  top: 0;
+}
+.page[data-page="7"] .ptfi-monthly-expanded-table td {
+  padding: 12px 11px;
+  font-size: 13px;
+}
+.page[data-page="7"] .ptfi-monthly-expanded-table tbody tr:nth-child(even) td { background: var(--soft); }
+
+/* Responsive layout for navigation and language lengths. */
+@media(max-width:1000px) {
+  .page[data-page="1"] > .pc.g2.ptfi-overview-clean { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+  .page[data-page="1"] .ptfi-overview-clean > .ptfi-overview-trend-wide,
+  .page[data-page="1"] .ptfi-overview-clean > .ptfi-overview-regencies { grid-column: 1 / -1 !important; }
+  .page[data-page="4"] > .pc.ptfi-target-groups-clean { grid-template-columns: minmax(0,1fr) !important; grid-template-rows: auto !important; }
+  .page[data-page="4"] > .pc.ptfi-target-groups-clean > .v { grid-column: 1 / -1 !important; grid-row: auto !important; }
+}
+@media(max-width:600px) {
+  .page[data-page="1"] > .pc.g2.ptfi-overview-clean { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+  .page[data-page="1"] .ptfi-overview-trend-wide .vb.chbox,
+  .page[data-page="1"] .ptfi-overview-trend-wide .chbox,
+  .page[data-page="1"] .ptfi-overview-trend-wide svg { height: 260px !important; min-height: 0 !important; }
+  .page[data-page="7"] .ptfi-monthly-wide-card { padding: 12px; }
+  .page[data-page="7"] .ptfi-monthly-expanded-table { font-size: 11px; }
+  .page[data-page="7"] .ptfi-monthly-expanded-table th,
+  .page[data-page="7"] .ptfi-monthly-expanded-table td { padding: 9px 7px; font-size: 11px; }
+}
+@media print {
+  .page[data-page="1"] > .pc.g2.ptfi-overview-clean { grid-template-columns: repeat(4,minmax(0,1fr)) !important; }
+  .page[data-page="1"] .ptfi-overview-clean > .ptfi-overview-trend-wide { grid-column: 1 / 4 !important; }
+  .page[data-page="1"] .ptfi-overview-clean > .ptfi-overview-regencies { grid-column: 4 / 5 !important; }
+  .page[data-page="4"] > .pc.ptfi-target-groups-clean { grid-template-columns: minmax(0,1.4fr) minmax(0,1fr) !important; }
+  .page[data-page="4"] > .pc.ptfi-target-groups-clean > .v:first-child { grid-row: 1 / 3 !important; }
+  .page[data-page="4"] > .pc.ptfi-target-groups-clean > .v:nth-child(2) { grid-column: 2 !important; grid-row: 1 !important; }
+  .page[data-page="4"] > .pc.ptfi-target-groups-clean > .v:nth-child(3) { grid-column: 2 !important; grid-row: 2 !important; }
+  .page[data-page="7"] > .pc.g8.ptfi-monthly-full-table { grid-template-columns: 1fr !important; }
+  .page[data-page="7"] .ptfi-monthly-wide-card .tsc { overflow: visible !important; }
+  .page[data-page="7"] .ptfi-monthly-expanded-table { min-width: 0 !important; font-size: 11px !important; }
+  .page[data-page="7"] .ptfi-monthly-expanded-table th,
+  .page[data-page="7"] .ptfi-monthly-expanded-table td { font-size: 11px !important; padding: 9px 8px !important; }
+}

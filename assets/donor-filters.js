@@ -16,6 +16,7 @@
   const originalTerritory = window.selectTerritory;
   let initialized = false;
   let keepOpen = '';
+  let lastRenderedPage = null;
   let activeRenderPage = null;
   // Print-all builds eight slides in one render. Apply village scoping per slide,
   // not according to the currently selected navigation page.
@@ -173,10 +174,21 @@
   }
   function paintGlobalFilters() {
     if (!DB || !initialized || !document.querySelector('.app-shell:not([inert])')) return;
+    // A dropdown may remain open while changing selections, but never re-open
+    // automatically when moving to another dashboard slide.
+    if (lastRenderedPage !== null && lastRenderedPage !== PAGE) keepOpen = '';
+    lastRenderedPage = PAGE;
     const viewport = document.querySelector('.main-viewport');
     const stage = document.getElementById('stage');
     if (!viewport || !stage) return;
     let root = document.getElementById('ptfiGlobalFilters');
+    // Read the actual state before rebuilding dropdowns. If the user closed
+    // the menu with its summary button, that takes precedence over keepOpen.
+    if (root && keepOpen) {
+      const previous = [...root.querySelectorAll('details.ptfi-filter-dropdown')]
+        .find(menu => menu.dataset.field === keepOpen);
+      if (!previous?.open) keepOpen = '';
+    }
     if (!root) {
       root = document.createElement('section');
       root.id = 'ptfiGlobalFilters';
@@ -207,6 +219,13 @@
         }
       });
       root.addEventListener('click', e => {
+        // Summary click toggles the native details element after the click.
+        // Track the intended state, including the user's explicit close.
+        const summary = e.target.closest('.ptfi-filter-dropdown > summary');
+        if (summary) {
+          const menu = summary.parentElement;
+          keepOpen = menu.open ? '' : (menu.dataset.field || '');
+        }
         if (e.target.closest('[data-clear-filters]')) {
           fields.forEach(k => selected[k] = []);
           S.per = ''; syncLegacyState(); keepOpen = '';
@@ -216,8 +235,13 @@
         if (close) { close.closest('details')?.removeAttribute('open'); keepOpen=''; }
       });
       root.addEventListener('toggle', e => {
-        if (e.target.matches('details[open]')) {
-          root.querySelectorAll('details[open]').forEach(other => { if (other !== e.target) other.open = false; });
+        const menu = e.target;
+        if (!menu.matches?.('details.ptfi-filter-dropdown') || !menu.isConnected) return;
+        if (menu.open) {
+          keepOpen = menu.dataset.field || '';
+          root.querySelectorAll('details[open]').forEach(other => { if (other !== menu) other.open = false; });
+        } else if (keepOpen === menu.dataset.field) {
+          keepOpen = '';
         }
       }, true);
     }
@@ -231,6 +255,16 @@
     const headHeight = document.querySelector('.bar')?.getBoundingClientRect().height || 49;
     document.documentElement.style.setProperty('--ptfi-header-height', Math.ceil(headHeight)+'px');
   }
+  // Closing a popup (or navigating elsewhere) must not erase filters.
+  // It only clears presentation state; selected values remain untouched.
+  document.addEventListener('click', event => {
+    const root = document.getElementById('ptfiGlobalFilters');
+    if (!root || root.contains(event.target)) return;
+    root.querySelectorAll('details.ptfi-filter-dropdown[open]')
+      .forEach(menu => { menu.open = false; });
+    keepOpen = '';
+  });
+
   // Activity source currently contains no village field. Never report a zero
   // for an unknown village-level numerator to a donor: explicitly show N/A.
   function markMissingVillageActivityData() {
