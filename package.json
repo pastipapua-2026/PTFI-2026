@@ -1,13 +1,13 @@
 {
-  "name": "pasti-papua-ptfi-dashboard",
-  "version": "1.0.0",
+  "name": "pasti-papua-weekly-update-ptfi",
+  "version": "2.0.0",
   "private": true,
-  "description": "Dashboard capaian PASTI-Papua untuk PT Freeport Indonesia",
+  "description": "Laporan mingguan PASTI-Papua untuk PT Freeport Indonesia (Weekly Update, BTT, MTT)",
   "type": "module",
   "scripts": {
     "dev": "node scripts/serve.mjs",
     "build": "node scripts/build.mjs",
-    "check": "node --check assets/dashboard.js",
+    "check": "node --check assets/logic.js && node --check assets/app.js",
     "test": "node --test tests/dashboard.test.mjs",
     "preview": "node scripts/serve.mjs dist"
   },
