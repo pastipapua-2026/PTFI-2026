@@ -1,0 +1,94 @@
+/* =====================================================================
+   Weekly Update PTFI — komponen tambahan.
+   Dibangun dari token dan unsur dashboard.css (panel, radius 12/8/4, padding 18, gap 16). Tanpa warna baru.
+   ===================================================================== */
+
+/* gerbang kode akses */
+body.locked{overflow:hidden}
+body.locked .top,body.locked main,body.locked .pager{visibility:hidden}
+#gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px}
+.gate-box{width:min(420px,100%);padding:28px 26px;gap:10px}
+.gate-box .brand{flex:none;margin-bottom:6px}
+.gate-box .brand p{display:block}
+.g-sub{margin:0 0 6px;color:var(--mut);font-size:13px}
+.g-lab{font-size:11px;font-weight:700;color:var(--mut)}
+#gCode{height:44px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);padding:0 12px;font:inherit;font-size:15px;letter-spacing:.08em;text-transform:uppercase}
+#gCode:focus{outline:none;border-color:var(--or);box-shadow:0 0 0 2px rgba(233,78,20,.14)}
+#gBtn{height:44px;font-size:13px}
+#gBtn:disabled{opacity:.6;cursor:default}
+.g-err{min-height:18px;font-size:12px;font-weight:600;color:var(--or-ink)}
+.g-foot{color:var(--faint);font-size:11px}
+
+/* pilihan minggu di header: lebar dibatasi agar label panjang tidak melebarkan halaman */
+#per{max-width:340px;text-overflow:ellipsis}
+
+/* minggu laporan di dalam halaman (dipakai saat presentasi) */
+.wk-nav{display:flex;align-items:center;gap:8px;min-width:0}
+.wk-l{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.wk-l b{font-size:13.5px;font-weight:800}
+.wk-l span{font-size:11px;color:var(--mut);font-weight:600}
+.fbar .chips{flex:none}
+
+/* pemberitahuan snapshot */
+.notice{background:var(--warn-soft);border:1px solid rgba(255,138,92,.35);border-left:3px solid var(--or);border-radius:8px;padding:10px 14px;font-size:12.5px;color:var(--ink2)}
+.notice b{color:var(--warn-ink)}
+
+/* tiga kartu kabupaten */
+.r-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.kab-mini{background:var(--soft);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.kab-mini .k{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;font-weight:700;color:var(--mut);margin-bottom:6px}
+.kab-mini .k b{font-size:18px;font-weight:800;color:var(--ink);letter-spacing:-.4px}
+.kab-mini .k b small{font-size:12px;color:var(--mut);font-weight:600}
+.kab-mini .annbar{height:8px;background:var(--card)}
+
+/* daftar highlight: titik tinta = sesuai jalur, oranye = perlu perhatian, abu = informasi */
+.hl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+.hl li{position:relative;padding-left:18px;font-size:13px;line-height:1.55;color:var(--ink2)}
+.hl li::before{content:"";position:absolute;left:2px;top:.55em;width:8px;height:8px;border-radius:50%;background:var(--faint)}
+.hl li.ok::before{background:var(--ink)}
+.hl li.warn::before{background:var(--or)}
+.kab-card .hl li{font-size:12.5px}
+
+/* tabel kegiatan */
+.act-t{table-layout:fixed}
+.act-t td{vertical-align:top}
+.act-t td.lead{font-weight:600}
+.act-t .code,.prog-t .code{font-size:11px;color:var(--mut);margin-right:4px}
+.act-l{font-size:11px;color:var(--mut);font-weight:500;margin-top:2px}
+.ind-n.hs{min-height:0;-webkit-line-clamp:3;font-size:12px;color:var(--ink2)}
+.doc{display:inline-block;font-size:10.5px;font-weight:700;color:var(--faint);border:1px dashed var(--line2);border-radius:4px;padding:1px 6px;margin:0 2px 3px 0;white-space:nowrap}
+.doc.y{color:var(--ink);border:1px solid var(--line);background:var(--soft)}
+.doc.y::before{content:"✓ "}
+.prog-t td{vertical-align:middle}
+
+/* baris per kabupaten & kelompok usia */
+.grp.kb span small{display:block;font-size:11px;color:var(--mut);font-weight:500;margin-top:2px}
+.grp.sm{padding:9px 0}
+.grp.sm>span{font-size:12px}
+
+/* lead KPI dengan pemilahan jenis kelamin */
+.kpi.lead .sexbar{background:rgba(255,255,255,.14)}
+.kpi .sexbar{margin-top:2px}
+.kpi .split{margin-top:6px}
+.kpi.lead .split span{color:#c0cad8}
+
+/* tabel indikator */
+.mtt-ind tr.det td{background:var(--soft);padding-top:6px;padding-bottom:6px}
+.mtt-ind tr.det .code{font-size:11.5px;color:var(--mut)}
+.mtt-ind tr.det .ind-n{font-size:11.5px}
+.mtt-ind .act-l{margin-top:4px}
+
+/* sampul */
+.cover .cv-r{margin-top:6px;font-size:14px;font-weight:600;color:#c0cad8}
+
+/* responsif */
+@media (max-width:1100px){.r-3{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:760px){
+  .ctrl{width:100%;flex-wrap:nowrap}.ctrl .fxs{flex:1 1 auto;min-width:0}#per{width:100%;max-width:none}
+  .fbar .chips{width:100%}
+  .act-t{table-layout:auto}
+  table.stack td .ind-n.hs{text-align:left}
+  table.stack td .doc{margin-bottom:0}
+  .grp.kb span small{display:none}
+}
+@media print{#gate{display:none}.fbar{display:none!important}.notice{break-inside:avoid}}
