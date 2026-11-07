@@ -1,0 +1,82 @@
+name: Weekly Update · sinkron dan publikasi
+
+# Tiap ±30 menit: baca Google Sheets → bila data berubah, simpan data terenkripsi → publikasikan ke GitHub Pages.
+# Push ke main dan "Run workflow" manual selalu memublikasikan ulang.
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md']
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: weekly-update
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      changed: ${{ steps.sync.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pasang pustaka
+        run: python -m pip install --quiet 'cryptography>=42' 'google-auth[requests]>=2.38,<3'
+      - name: Uji pembacaan sheet dan filter privasi
+        run: python -m unittest discover -s tests -p 'test_sync_weekly.py'
+      - name: Ambil data Google Sheets
+        id: sync
+        env:
+          SHEET_WEEKLY_ID: ${{ secrets.SHEET_WEEKLY_ID }}
+          SHEET_BTT_ID: ${{ secrets.SHEET_BTT_ID }}
+          SHEET_MTT_ID: ${{ secrets.SHEET_MTT_ID }}
+          DASHBOARD_ACCESS_CODE: ${{ secrets.DASHBOARD_ACCESS_CODE }}
+          GOOGLE_SHEETS_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SHEETS_SERVICE_ACCOUNT }}
+        run: python scripts/sync_weekly.py
+      - name: Simpan data baru
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          git add data/weekly-update.enc.json
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "data: sinkron Weekly Update"
+          git push origin HEAD:main
+
+  deploy:
+    needs: sync
+    # tetap publikasi saat push/manual walau sinkron gagal (data terakhir dipakai)
+    if: always() && (needs.sync.outputs.changed == 'true' || github.event_name != 'schedule')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - uses: actions/deploy-pages@v4
+        id: deployment
