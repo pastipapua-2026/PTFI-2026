@@ -1,5 +1,14 @@
 # Perubahan
 
+## 2.2.0 · 7 November 2026
+
+- **Highlight minggu ini** kini merangkum semua kegiatan: progres, total peserta per jenis kelamin, ringkasan **per jenis kegiatan** (Posyandu, PMT, Pelatihan, Koordinasi/advokasi, dll.), dan **hasil yang menonjol** (komitmen, kesepakatan, rujukan, kenaikan/penurunan, kesiapan).
+- **Tabel hasil kegiatan** di Ringkasan dan Kegiatan: kolom Total, L, P hasil penyaringan narasi Hasil Kegiatan, dan poin hasil. Baris yang hanya berisi angka kehadiran tidak diulang di "Hasil utama".
+- Penyaring peserta mengenali format yang dipakai tim: "(L:1, P:28)", "Baduta :13 orang L:10 P:3", "Pria : 58 / Wanita: 22", "Bayi laki-laki: 14 … Total hadir: 81", "(P: 6; L: 2)". Diuji dengan seluruh Hasil Kegiatan di Weekly Update 6 Nov 2026.
+- Weekly Update dibaca dari ekspor .xlsx (tanggal teks tidak hilang). Kolom "Nama Kegiatan Jika Ada Perubahan" dipakai sebagai nama kegiatan.
+- Kolom Rencana Kerja yang bergeser (tab Mimika dan Asmat) dan tanggal yang hari/bulannya tertukar (tab Nabire) dibaca dari posisi/kolom Bulan yang benar, dan dicatat di Catatan data.
+- **Partisipan (BTT)**: filter Periode (semua, tahun, tahun fiskal WVI, bulan), Wilayah, Jenis kelamin, dan Kelompok usia, dihitung dari tab Database BTT Rekap saat sinkron (hanya angka agregat).
+
 ## 2.1.0 · 7 November 2026
 
 - Highlight program dan per kabupaten kini berupa narasi dari kolom **Hasil Kegiatan**, lengkap dengan jumlah peserta tiap kegiatan dan pemilahan laki-laki/perempuan.

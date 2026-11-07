@@ -15,7 +15,7 @@ const dShort = s => { if (!s) return '–'; const d = WU.parse(s); return `${d.g
 const TODAY = iso(new Date());
 
 let D = null;
-const ST = { sec: 'cover', week: null, kab: 'Semua', bttM: 'u', dokV: 'grid', anim: null, mob: innerWidth < 720 };
+const ST = { sec: 'cover', week: null, kab: 'Semua', bttM: 'u', dokV: 'grid', bf: { per: '', wil: 'Semua', jk: 'Semua', usia: 'Semua' }, anim: null, mob: innerWidth < 720 };
 const SECTIONS = [{ id: 'cover', t: 'Sampul' }, { id: 'ringkasan', t: 'Ringkasan' }, { id: 'kegiatan', t: 'Kegiatan' }, { id: 'dokumentasi', t: 'Dokumentasi' }, { id: 'partisipan', t: 'Partisipan' }, { id: 'indikator', t: 'Capaian indikator' }, { id: 'penutup', t: 'Penutup' }];
 /* logo Wahana Visi Indonesia: berkas assets/logo-wvi.png; bila belum ada, tampil nama organisasi */
 let LOGO_OK = null; /* dicek sekali saat halaman dibuka */
@@ -101,6 +101,7 @@ function weekBar(withKab) {
     <button class="arr sm" data-wk="${ws[i - 1] || ''}" ${i > 0 ? '' : 'disabled'} aria-label="Minggu berikutnya">›</button></div></div>${chips}</div>`;
 }
 function snapNotice(c) {
+  if (c.live && D.mode === 'snapshot') return `<div class="notice"><b>Data awal per ${esc(dShort((SNAP() || {}).dibaca || ''))} 2026.</b> Kegiatan dibaca dari file Weekly Update yang diunggah. Setelah sinkron Google Sheets aktif, laporan diperbarui otomatis kira-kira tiap 30 menit.</div>`;
   if (c.live) return '';
   const s = SNAP();
   return `<div class="notice"><b>Snapshot ${esc(dShort(s && s.dibaca))} 2026.</b> Angka kegiatan diambil dari ${esc(s ? s.sumber : 'tab Dashboard')}. Daftar kegiatan, hasil kegiatan, dan jumlah peserta per kegiatan tampil otomatis setelah sinkron Google Sheets aktif.</div>`;
@@ -163,7 +164,10 @@ function renderRingkasan() {
     ${kpi('Kegiatan selesai', `${fN(a.selesai)} <small>/ ${fN(a.aktif)}</small>`, `<b>${fP(a.pct)}</b> dari kegiatan aktif${a.tl ? ` · <b>${fN(a.tl)}</b> perlu tindak lanjut` : ''}`)}
     ${pesKpi(a, c.live)}
     ${kpi('Partisipan unik (BTT)', fN(k.u), esc((D.btt.cakupan || '').split('·')[0].trim()), false, sexBlock(k.l, k.p))}</div>`;
-  const prog = `<div class="panel"><div class="panel-h"><h3>Highlight seluruh wilayah program</h3><span class="meta">disusun otomatis dari hasil kegiatan dan jumlah peserta</span></div><div class="panel-b">${hlList(hlProgram(Object.assign({ nNarr: 4 }, c)))}</div></div>`;
+  const secs = hlProgram(Object.assign({ nNarr: 4 }, c));
+  const prog = `<div class="panel"><div class="panel-h"><h3>Highlight minggu ini</h3><span class="meta">ringkasan dari semua kegiatan dan hasilnya</span></div><div class="panel-b hl-secs">
+    ${secs.map(x => `<div class="hl-sec">${x.judul ? `<h4>${esc(x.judul)}</h4>` : ''}${hlList(x.items)}</div>`).join('')}</div></div>`;
+  const tbl = c.live ? hasilTable(c.acts.filter(a => ['selesai', 'berjalan'].includes(stKey(a.status))), { ringkas: true }) : '';
   const kabs = `<div class="row r-3">${KAB.map(x => {
     const g = c.byKab[x];
     return `<div class="panel kab-card"><div class="panel-h"><h3>${x}</h3><span class="meta">${KAMPUNG[x]} kampung dampingan</span></div><div class="panel-b">
@@ -172,16 +176,41 @@ function renderRingkasan() {
   }).join('')}</div>`;
   const rules = ['Kegiatan masuk ke minggu laporan berdasarkan Tanggal Mulai di Weekly Update (minggu Senin–Minggu).',
     '"Selesai" dihitung dari kegiatan aktif (tanpa status Batal). "Lewat jadwal" = tanggal sudah lewat tetapi status belum Selesai.',
-    'Narasi kegiatan memakai kalimat pertama kolom Hasil Kegiatan, untuk kegiatan Selesai dengan peserta terbanyak.',
-    'Jumlah peserta diambil dari kolom Peserta Laki-laki, Peserta Perempuan, dan Total Peserta. Bila kolom kosong, angka dibaca dari teks Hasil hanya jika ditulis jelas (mis. "Laki-laki: 4, Perempuan: 2") dan diberi tanda "dari teks". Jumlah peserta adalah kehadiran: satu orang bisa hadir di beberapa kegiatan.',
+    'Per jenis kegiatan: kegiatan dikelompokkan dari nama kegiatan (Posyandu, PMT dan pemulihan gizi, Pelatihan, Edukasi, Koordinasi dan advokasi, Pendampingan kader, Manajemen dan MEAL).',
+    'Hasil yang menonjol: dari setiap kegiatan Selesai atau Berjalan dipilih satu poin Hasil Kegiatan yang memuat komitmen, kesepakatan, rujukan, kenaikan/penurunan, kesiapan, atau perubahan. Poin yang hanya berisi angka kehadiran tidak dipilih.',
+    'Jumlah peserta disaring dari narasi Hasil Kegiatan: angka berlabel laki-laki/pria/L dan perempuan/wanita/P (ibu hamil dan ibu nifas dihitung perempuan), total dari "Total/Jumlah … N" atau "N peserta", atau jumlah baduta/balita/bayi. Bila kolom Peserta Laki-laki/Perempuan/Total diisi, kolom yang dipakai. Total yang tidak sama dengan laki-laki + perempuan diberi tanda cek.',
+    'Jumlah peserta adalah kehadiran: satu orang bisa hadir di beberapa kegiatan.',
     'Partisipan unik mengikuti cakupan filter di tab Dashboard BTT Rekap. Indikator MTT tercapai bila capaian lebih dari 90% target (aturan Summary_26).'];
-  return head + `<div class="stack-y">${weekBar(false)}${snapNotice(c)}${kp}${prog}${kabs}</div>` + note('Cara highlight disusun', rules.map(esc));
+  return head + `<div class="stack-y">${weekBar(false)}${snapNotice(c)}${kp}${prog}${tbl}${kabs}</div>` + note('Cara highlight disusun', rules.map(esc));
 }
 
 function pesCell(pe) {
   if (!pe || !pe.t) return '<span class="dash">belum diisi</span>';
   const jk = [pe.l != null ? `L ${fN(pe.l)}` : '', pe.p != null ? `P ${fN(pe.p)}` : ''].filter(Boolean).join(' · ');
   return `<div class="pes"><b class="pes-t">${fN(pe.t)}</b>${jk ? `<div class="act-l">${jk}</div>` : '<div class="act-l">belum dipilah</div>'}${pe.src === 'teks' ? '<span class="src-t" title="Dibaca dari teks Hasil Kegiatan; isi kolom peserta untuk angka resmi">dari teks</span>' : ''}</div>`;
+}
+/* tabel hasil kegiatan: Total, laki-laki, perempuan hasil penyaringan narasi + poin hasil */
+function hasilTable(L, o = {}) {
+  if (!L.length) return '';
+  const n = v => v == null ? '<span class="dash">–</span>' : fN(v);
+  const body = KAB.filter(k => L.some(x => x.kab === k)).map(k => {
+    const X = L.filter(x => x.kab === k).sort((p, q) => p.mulai.localeCompare(q.mulai) || p.id.localeCompare(q.id)), g = aggregate(X, TODAY);
+    return `<tr class="grp-h"><td class="lead" colspan="${o.ringkas ? 5 : 7}">Kab. ${k}<span>${fN(X.length)} kegiatan${g.pesT ? ` · ${fN(g.pesT)} peserta (L ${fN(g.pesL)} · P ${fN(g.pesP)})` : ''}</span></td></tr>` +
+      X.map((x, i) => { const pe = x.peserta || {}, pts = o.ringkas ? WU.mainPoints(x.hasil, 3) : WU.hasilPoints(x.hasil);
+        const cek = pe.cek ? `<span class="src-t" title="${esc(pe.cek)}">cek angka</span>` : '';
+        return `<tr>${o.ringkas ? '' : `<td class="no hide-sm">${i + 1}</td>`}<td class="lead"><span class="code">${esc(x.id)}</span> ${esc(x.nama)}
+          <div class="act-l">${[x.lokasi, dShort(x.mulai) + (x.selesai && x.selesai !== x.mulai ? ' – ' + dShort(x.selesai) : ''), o.ringkas ? '' : x.output].filter(Boolean).map(esc).join(' · ')}${x.tgl_asli ? ` <span class="src-t" title="Di sheet tertulis ${esc(x.tgl_asli)}; disesuaikan dengan kolom Bulan">tanggal disesuaikan</span>` : ''}</div>
+          ${x.nama_rencana && !o.ringkas ? `<div class="act-l">Rencana: ${esc(x.nama_rencana)}</div>` : ''}</td>
+          <td class="r pes-n" data-l="Total peserta"><b>${n(pe.t)}</b>${cek}</td><td class="r pes-n" data-l="Laki-laki">${n(pe.l)}</td><td class="r pes-n" data-l="Perempuan">${n(pe.p)}</td>
+          <td data-l="Hasil kegiatan">${pts.length ? `<ul class="hasil-ul${o.ringkas ? '' : ' clamp'}">${pts.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : x.hasil ? '<span class="dash">Hasil hanya mencatat jumlah kehadiran (lihat kolom peserta)</span>' : '<span class="dash">belum diisi</span>'}</td>
+          ${o.ringkas ? '' : `<td data-l="Status">${stBadge(x)}</td>`}</tr>`; }).join('');
+  }).join('');
+  const head = o.ringkas ? '<tr><th>Kegiatan</th><th class="r">Total</th><th class="r">L</th><th class="r">P</th><th>Hasil utama</th></tr>'
+    : '<tr><th class="hide-sm">No</th><th>Nama kegiatan</th><th class="r">Total</th><th class="r">L</th><th class="r">P</th><th>Hasil kegiatan</th><th>Status</th></tr>';
+  const cols = o.ringkas ? '<col style="width:30%"><col style="width:64px"><col style="width:52px"><col style="width:52px"><col>'
+    : '<col style="width:34px"><col style="width:25%"><col style="width:64px"><col style="width:52px"><col style="width:52px"><col><col style="width:124px">';
+  return `<div class="panel"><div class="panel-h"><h3>${o.ringkas ? 'Hasil kegiatan minggu ini' : 'Daftar kegiatan dan hasil'}</h3><span class="meta">jumlah peserta disaring dari narasi Hasil Kegiatan${o.ringkas ? ' · kegiatan selesai dan berjalan' : ' · klik hasil untuk membaca lengkap'}</span></div>
+    <div class="panel-b tw"><table class="stack act-t hasil-t${o.ringkas ? ' ringkas' : ''}"><colgroup>${cols}</colgroup><thead>${head}</thead><tbody>${body}</tbody></table></div></div>`;
 }
 function renderKegiatan() {
   const c = ctx(), a = c.agg;
@@ -201,17 +230,7 @@ function renderKegiatan() {
   let list;
   if (c.live) {
     const L = c.acts.filter(x => ST.kab === 'Semua' || x.kab === ST.kab);
-    const body = KAB.filter(k => L.some(x => x.kab === k)).map(k => {
-      const X = L.filter(x => x.kab === k).sort((p, q) => p.mulai.localeCompare(q.mulai) || p.id.localeCompare(q.id)), g = aggregate(X, TODAY);
-      return `<tr class="grp-h"><td class="lead" colspan="6">Kab. ${k}<span>${fN(X.length)} kegiatan${g.pesT ? ` · ${fN(g.pesT)} peserta (L ${fN(g.pesL)} · P ${fN(g.pesP)})` : ''}</span></td></tr>` +
-        X.map((x, i) => `<tr><td class="no hide-sm">${i + 1}</td><td class="lead"><span class="code">${esc(x.id)}</span> ${esc(x.nama)}<div class="act-l">${[x.lokasi, x.output].filter(Boolean).map(esc).join(' · ')}</div></td>
-        <td data-l="Tanggal">${dShort(x.mulai)}${x.selesai && x.selesai !== x.mulai ? ` – ${dShort(x.selesai)}` : ''}</td><td data-l="Peserta">${pesCell(x.peserta)}</td>
-        <td data-l="Hasil kegiatan">${x.hasil ? `<div class="ind-n hs" title="Klik untuk membaca lengkap">${esc(x.hasil)}</div>` : '<span class="dash">belum diisi</span>'}</td><td data-l="Status">${stBadge(x)}</td></tr>`).join('');
-    }).join('');
-    list = `<div class="panel"><div class="panel-h"><h3>Daftar kegiatan dan hasil</h3><span class="meta">${fN(L.length)} kegiatan${ST.kab !== 'Semua' ? ' · ' + ST.kab : ''} · klik hasil untuk membaca lengkap</span></div><div class="panel-b tw">
-      ${L.length ? `<table class="stack act-t"><colgroup><col style="width:34px"><col style="width:26%"><col style="width:92px"><col style="width:112px"><col><col style="width:124px"></colgroup>
-      <thead><tr><th class="hide-sm">No</th><th>Nama kegiatan</th><th>Tanggal</th><th>Jumlah peserta</th><th>Hasil kegiatan</th><th>Status</th></tr></thead><tbody>${body}</tbody></table>`
-      : '<div class="empty"><b>Tidak ada kegiatan untuk pilihan ini.</b>Pilih minggu atau kabupaten lain.</div>'}</div></div>`;
+    list = L.length ? hasilTable(L) : `<div class="panel"><div class="panel-h"><h3>Daftar kegiatan dan hasil</h3></div><div class="panel-b"><div class="empty"><b>Tidak ada kegiatan untuk pilihan ini.</b>Pilih minggu atau kabupaten lain.</div></div></div>`;
   } else {
     const P = (c.perhatian || []).filter(x => ST.kab === 'Semua' || x.kab === ST.kab);
     list = `<div class="panel"><div class="panel-h"><h3>Daftar kegiatan dan hasil</h3><span class="meta">menunggu sinkron</span></div><div class="panel-b">
@@ -251,37 +270,54 @@ function renderDokumentasi() {
   return head + `<div class="stack-y">${weekBar(false)}${body}</div>` + note('Catatan dokumentasi', notes.map(esc));
 }
 
+function bttFilterBar(B, v) {
+  const P = WU.bttPeriods(B), f = ST.bf;
+  const grp = (t, rows) => rows.length ? `<optgroup label="${t}">${rows.map(([k, l]) => `<option value="${k}" ${f.per === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</optgroup>` : '';
+  const sel = `<select class="sel" id="bfPer" aria-label="Periode">${grp('Ringkasan', P.filter(([k]) => k === 'all' || k === 'dash'))}${grp('Tahun', P.filter(([k]) => /^y/.test(k)))}${grp('Tahun fiskal WVI', P.filter(([k]) => /^fy/.test(k)))}${grp('Bulan', P.filter(([k]) => /^m/.test(k)).slice().reverse())}</select>`;
+  const chips = (key, opts, on) => `<div class="chips" role="group">${opts.map(o => `<button class="chip" data-bf="${key}" data-val="${o}" aria-pressed="${f[key] === o}" ${on ? '' : 'disabled'}>${o === 'L' ? 'Laki-laki' : o === 'P' ? 'Perempuan' : o}</button>`).join('')}</div>`;
+  const usia = `<select class="sel" id="bfUsia" aria-label="Kelompok usia" ${v.usiaOk ? '' : 'disabled'}><option value="Semua">Semua usia</option>${((B.kubus && B.kubus.usia) || []).map(g => `<option value="${esc(g)}" ${f.usia === g ? 'selected' : ''}>${esc(USIA_L[g] || g)}</option>`).join('')}</select>`;
+  const aktif = [f.wil !== 'Semua' && f.wil, f.jk !== 'Semua' && (f.jk === 'L' ? 'Laki-laki' : 'Perempuan'), f.usia !== 'Semua' && (USIA_L[f.usia] || f.usia)].filter(Boolean);
+  return `<div class="panel bfbar"><div class="bf-grid">
+    <div class="bf-f"><span class="fb-lab">Periode</span>${sel}</div>
+    <div class="bf-f"><span class="fb-lab">Wilayah</span>${chips('wil', ['Semua', ...KAB, ...(B.kubus ? ['Lainnya'] : [])], true)}</div>
+    <div class="bf-f"><span class="fb-lab">Jenis kelamin</span>${chips('jk', ['Semua', 'L', 'P'], v.jkOk)}</div>
+    <div class="bf-f"><span class="fb-lab">Kelompok usia</span>${usia}</div>
+    ${aktif.length ? `<button class="ibtn bf-reset" data-bfreset="1">Reset filter</button>` : ''}</div>
+    ${!B.kubus ? '<div class="bf-note">Filter jenis kelamin dan kelompok usia aktif setelah tab Database BTT Rekap tersinkron. Sementara ini periode memakai cakupan tab Dashboard dan tren bulanan per file BTT.</div>' : ''}</div>`;
+}
+const USIA_L = { '0-5.99 mo': 'Bayi 0–5 bulan', '6-23.99 mo': 'Baduta 6–23 bulan', '24-59.99 mo': 'Balita 24–59 bulan', '5-11.99 yo': 'Anak 5–11 tahun', '12-17.99 yo': 'Remaja 12–17 tahun', 'Dewasa': 'Dewasa ≥18 tahun', 'Belum diketahui': 'Usia belum diketahui' };
 function renderPartisipan() {
-  const B = D.btt, k = B.kpi, pf = B.per_file;
-  const head = `<div class="ph"><div><h2>Partisipan (BTT)</h2><div class="sub">Cakupan: ${esc(B.cakupan || '–')}</div></div>${srcTag('Sumber: BTT Rekap · tab Dashboard')}</div>`;
-  const kp = `<div class="kpis k4">${kpi('Partisipan unik', fN(k.u), 'orang · tiap orang dihitung satu kali', true, sexBlock(k.l, k.p, k.u - k.l - k.p))}
-    ${kpi('Pelaksanaan kegiatan', fN(k.pel), 'kegiatan dengan minimal satu tanda hadir')}
-    ${kpi('Total kehadiran', fN(k.hd), 'tanda hadir · satu orang bisa hadir berkali-kali')}
-    ${kpi('Rata-rata keikutsertaan', fN(k.avg, 1), 'kegiatan per orang')}</div>`;
-  const mxU = Math.max(1, ...KAB.map(x => pf[x].u));
-  const perKab = `<div class="panel"><div class="panel-h"><h3>Per kabupaten</h3><span class="meta">file BTT asal data</span></div><div class="panel-b"><div class="grps">
-    ${KAB.map(x => { const f = pf[x]; return `<div class="grp kb"><span>${x}<small>${fN(f.pel)} pelaksanaan · ${fN(f.hd)} kehadiran</small></span><div class="t"><span style="width:${f.u / mxU * 100}%"></span></div><div class="v"><b>${fN(f.u)}</b> unik${f.u ? ` · P ${fP(f.p / f.u)}` : ''}</div></div>`; }).join('')}
+  const B = D.btt, P = WU.bttPeriods(B);
+  if (!ST.bf.per || !P.some(([k]) => k === ST.bf.per)) { const y = P.find(([k]) => k === 'y' + TODAY.slice(0, 4)); ST.bf.per = (y || P[0] || ['dash'])[0]; }
+  const v = WU.bttView(B, ST.bf), perL = (P.find(([k]) => k === ST.bf.per) || [, ''])[1];
+  const scope = [perL, ST.bf.wil !== 'Semua' ? ST.bf.wil : 'semua wilayah', ST.bf.jk !== 'Semua' ? (ST.bf.jk === 'L' ? 'laki-laki' : 'perempuan') : '', ST.bf.usia !== 'Semua' ? (USIA_L[ST.bf.usia] || ST.bf.usia) : ''].filter(Boolean).join(' · ');
+  const head = `<div class="ph"><div><h2>Partisipan (BTT)</h2><div class="sub">${esc(scope)}</div></div>${srcTag(B.kubus ? 'Sumber: BTT Rekap · tab Database (agregat)' : 'Sumber: BTT Rekap · tab Dashboard')}</div>`;
+  const na = x => x == null ? '–' : fN(x);
+  const kp = `<div class="kpis k4">${kpi('Partisipan unik', na(v.u), 'orang · tiap orang dihitung satu kali dalam periode', true, v.l != null && ST.bf.jk === 'Semua' ? sexBlock(v.l, v.p, v.x) : '')}
+    ${kpi('Pelaksanaan kegiatan', na(v.pel), v.pel == null ? 'per wilayah belum tersedia untuk bulan ini' : (ST.bf.jk !== 'Semua' || ST.bf.usia !== 'Semua') ? 'tidak terpengaruh filter jenis kelamin/usia' : 'kegiatan dengan minimal satu tanda hadir')}
+    ${kpi('Total kehadiran', na(v.hd), 'tanda hadir · satu orang bisa hadir berkali-kali')}
+    ${kpi('Rata-rata keikutsertaan', v.u && v.hd != null ? fN(v.hd / v.u, 1) : '–', 'kegiatan per orang')}</div>`;
+  const mxU = Math.max(1, ...v.perWil.map(([, o]) => o.u));
+  const perKab = `<div class="panel"><div class="panel-h"><h3>Per wilayah</h3><span class="meta">${v.mode === 'kubus' ? 'kabupaten partisipan' : 'file BTT'} · ${esc(perL)}</span></div><div class="panel-b"><div class="grps">
+    ${v.perWil.map(([w, o]) => `<div class="grp kb ${ST.bf.wil !== 'Semua' && ST.bf.wil !== w ? 'dim' : ''}"><span>${w}${o.hd ? `<small>${fN(o.hd)} kehadiran</small>` : ''}</span><div><div class="t"><span style="width:${o.u / mxU * 100}%"></span></div>${o.l + o.p ? `<div class="sexbar mini"><span class="m" style="width:${o.l / (o.l + o.p) * 100}%"></span><span class="f" style="width:${o.p / (o.l + o.p) * 100}%"></span></div>` : ''}</div><div class="v"><b>${fN(o.u)}</b> unik${o.l + o.p ? ` · L ${fN(o.l)} · P ${fN(o.p)}` : ''}</div></div>`).join('')}
     </div></div></div>`;
-  const mxA = Math.max(1, ...B.usia.map(r => r.t));
-  const usia = `<div class="panel"><div class="panel-h"><h3>Kelompok usia</h3><span class="meta">partisipan unik</span></div><div class="panel-b"><div class="grps">
-    ${B.usia.map(r => `<div class="grp sm"><span title="${esc(r.g)}">${esc(r.ket || r.g)}</span><div class="t"><span style="width:${r.t / mxA * 100}%"></span></div><div class="v"><b>${fN(r.t)}</b> ${fP(k.u ? r.t / k.u : null)}</div></div>`).join('')}
-    </div></div></div>`;
-  const nowMk = TODAY.slice(0, 7), Wd = bttWindow(B.bulanan, nowMk, ST.mob ? 8 : 14);
-  const cats = Wd.map(r => { const [y, m] = r.m.split('-').map(Number); return `${BLN3[m - 1]} ${String(y).slice(2)}`; });
-  const M = ST.bttM;
-  const series = M === 'u' ? KAB.map(x => ({ n: x, c: KAB_C[x], v: Wd.map(r => r[x]) })) : [{ n: M === 'pel' ? 'Pelaksanaan' : 'Kehadiran', c: 'var(--or)', v: Wd.map(r => r[M]) }];
-  const seg = `<div class="seg" role="group" aria-label="Ukuran">${[['u', 'Partisipan unik'], ['pel', 'Pelaksanaan'], ['hd', 'Kehadiran']].map(([v, l]) => `<button data-btt="${v}" aria-pressed="${M === v}">${l}</button>`).join('')}</div>`;
+  const mxA = Math.max(1, ...v.usia.map(([, o]) => o.u));
+  const usia = `<div class="panel"><div class="panel-h"><h3>Kelompok usia</h3><span class="meta">partisipan unik · ${esc(ST.bf.wil !== 'Semua' ? ST.bf.wil : 'semua wilayah')}</span></div><div class="panel-b">${v.usia.length ? `<div class="grps">
+    ${v.usia.map(([g, o]) => `<div class="grp sm ${ST.bf.usia !== 'Semua' && ST.bf.usia !== g ? 'dim' : ''}"><span title="${esc(g)}">${esc(USIA_L[g] || g)}</span><div class="t"><span style="width:${o.u / mxA * 100}%"></span></div><div class="v"><b>${fN(o.u)}</b> ${fP(v.u ? o.u / v.u : null)}</div></div>`).join('')}</div>`
+    : '<div class="empty"><b>Rincian usia untuk pilihan ini belum tersedia.</b>Aktif setelah tab Database BTT Rekap tersinkron.</div>'}</div></div>`;
+  const nowMk = TODAY.slice(0, 7), T = v.trend.filter(r => r.m <= (nowMk > (WU.bttLastMonth(B.bulanan) || '') ? nowMk : WU.bttLastMonth(B.bulanan))).slice(ST.mob ? -8 : -14);
+  const cats = T.map(r => { const [y, m] = r.m.split('-').map(Number); return `${BLN3[m - 1]} ${String(y).slice(2)}`; });
+  const M = ST.bttM, hasVal = T.some(r => r[M] != null);
+  const seg = `<div class="seg" role="group" aria-label="Ukuran">${[['u', 'Partisipan unik'], ['pel', 'Pelaksanaan'], ['hd', 'Kehadiran']].map(([k, l]) => `<button data-btt="${k}" aria-pressed="${M === k}">${l}</button>`).join('')}</div>`;
   const tren = `<div class="panel"><div class="panel-h"><h3>Tren bulanan</h3>${seg}</div><div class="panel-b">
-    ${Wd.length ? `<div class="chart-wrap">${barChart(cats, series, { zeroLabel: true, aria: 'Tren bulanan BTT' })}</div>` : '<div class="empty"><b>Belum ada data bulanan.</b></div>'}
-    ${M === 'u' ? `<div class="legend">${KAB.map(x => `<span><span class="sw" style="background:${KAB_C[x]}"></span>${x}</span>`).join('')}<span>Partisipan unik per bulan tidak dijumlahkan antarbulan (orang yang sama bisa hadir di beberapa bulan).</span></div>` : ''}</div></div>`;
-  const oc = `<div class="panel"><div class="panel-h"><h3>Kegiatan menurut Outcome</h3><span class="meta">jumlah pelaksanaan</span></div><div class="panel-b tw"><table class="stack">
-    <thead><tr><th>Outcome</th>${KAB.map(x => `<th class="r">${x}</th>`).join('')}<th class="r">Total</th><th class="r">Kehadiran</th></tr></thead>
-    <tbody>${B.outcome.filter(r => r.pel || !/belum/i.test(r.o)).map(r => `<tr><td class="lead">${esc(r.o)}</td>${KAB.map(x => `<td class="r" data-l="${x}">${fN(r[x])}</td>`).join('')}<td class="r" data-l="Total"><b>${fN(r.pel)}</b></td><td class="r" data-l="Kehadiran">${fN(r.hd)}</td></tr>`).join('')}</tbody></table></div></div>`;
-  const rc = B.recap || {};
-  const recap = `<div class="panel"><div class="panel-h"><h3>Tanda hadir format BTT Recap</h3><span class="meta">Male/Female ≥18 tahun · Boys/Girls &lt;18 tahun</span></div><div class="panel-b tw"><table class="stack">
+    ${T.length && hasVal ? `<div class="chart-wrap">${barChart(cats, [{ n: M, c: 'var(--or)', v: T.map(r => r[M] || 0) }], { zeroLabel: true, aria: 'Tren bulanan BTT' })}</div>` : '<div class="empty"><b>Belum ada data untuk ukuran ini.</b>Pelaksanaan dan kehadiran per wilayah aktif setelah tab Database tersinkron.</div>'}
+    <div class="legend"><span>Mengikuti filter wilayah${v.jkOk ? ', jenis kelamin, dan usia' : ''}. Partisipan unik per bulan tidak dijumlahkan antarbulan.</span></div></div></div>`;
+  const oc = v.outcome ? `<div class="panel"><div class="panel-h"><h3>Pelaksanaan menurut Outcome</h3><span class="meta">${esc(perL)}${ST.bf.wil !== 'Semua' ? ' · file BTT ' + ST.bf.wil : ''}</span></div><div class="panel-b"><div class="grps">
+    ${['Outcome 1', 'Outcome 2', 'Outcome 3', 'Belum dipilih'].map((l, i) => { const val = v.outcome[i] || 0, mx = Math.max(1, ...v.outcome); return `<div class="grp sm"><span>${l}</span><div class="t"><span style="width:${val / mx * 100}%"></span></div><div class="v"><b>${fN(val)}</b> pelaksanaan</div></div>`; }).join('')}</div></div></div>` : '';
+  const rc = v.recap.length ? `<div class="panel"><div class="panel-h"><h3>Tanda hadir format BTT Recap</h3><span class="meta">Male/Female ≥18 tahun · Boys/Girls &lt;18 tahun</span></div><div class="panel-b tw"><table class="stack">
     <thead><tr><th>File BTT</th><th class="r">Male</th><th class="r">Female</th><th class="r">Boys</th><th class="r">Girls</th><th class="r">Tak terklasifikasi</th><th class="r">Total</th></tr></thead>
-    <tbody>${KAB.filter(x => rc[x]).map(x => { const r = rc[x]; return `<tr><td class="lead">${x}</td><td class="r" data-l="Male">${fN(r.male)}</td><td class="r" data-l="Female">${fN(r.female)}</td><td class="r" data-l="Boys">${fN(r.boys)}</td><td class="r" data-l="Girls">${fN(r.girls)}</td><td class="r" data-l="Tak terklasifikasi">${fN(r.tk)}</td><td class="r" data-l="Total"><b>${fN(r.t)}</b></td></tr>`; }).join('')}</tbody></table></div></div>`;
-  return head + `<div class="stack-y">${kp}<div class="row r-11">${perKab}${usia}</div>${tren}<div class="row r-11">${oc}${recap}</div></div>` + note('Catatan data BTT', bttNotes(B));
+    <tbody>${v.recap.map(r => `<tr><td class="lead">${r[0]}</td><td class="r" data-l="Male">${fN(r[7])}</td><td class="r" data-l="Female">${fN(r[8])}</td><td class="r" data-l="Boys">${fN(r[9])}</td><td class="r" data-l="Girls">${fN(r[10])}</td><td class="r" data-l="Tak terklasifikasi">${fN(r[11])}</td><td class="r" data-l="Total"><b>${fN(r[2])}</b></td></tr>`).join('')}</tbody></table></div></div>` : '';
+  return head + `<div class="stack-y">${bttFilterBar(B, v)}${kp}<div class="row r-11">${perKab}${usia}</div>${tren}${oc || rc ? `<div class="row r-11">${oc || ''}${rc || ''}</div>` : ''}</div>` + note('Catatan data BTT', bttNotes(B));
 }
 function bttNotes(B) {
   const f = [], k = B.kpi, pf = B.per_file, mov = B.mov || {};
@@ -294,7 +330,10 @@ function bttNotes(B) {
   const ua = B.usia.find(r => /belum/i.test(r.g)); if (ua && ua.t) f.push(`Usia kosong atau tidak baku untuk ${fN(ua.t)} partisipan unik (${fP(ua.t / k.u)}).`);
   const last = bttLastMonth(B.bulanan); if (last && last < TODAY.slice(0, 7)) f.push(`Data bulanan BTT terakhir terisi untuk ${monthLabel(last)}; bulan sesudahnya masih 0. Angka akan bertambah setelah tim menginput BTT bulan berjalan.`);
   if (B.cakupan && !/semua bulan/i.test(B.cakupan)) f.push(`Filter bulan di tab Dashboard BTT Rekap sedang aktif (${esc(B.cakupan)}).`);
-  f.push('Laporan ini hanya membaca angka agregat dari tab Dashboard BTT Rekap. Data per orang di tab Database tidak dibaca.');
+  (B.catatan || []).forEach(x => f.push(x));
+  const ck = B.kubus && B.kubus.cek;
+  if (ck) f.push(ck.cocok ? `Cek silang: partisipan unik ${ck.periode} hasil hitung (${fN(ck.u_hitung)}) sama dengan kartu Dashboard BTT Rekap.` : `Cek silang: partisipan unik ${ck.periode} hasil hitung (${fN(ck.u_hitung)}) berbeda dengan kartu Dashboard BTT Rekap (${fN(ck.u_dashboard)}). Periksa definisi Dup/Ident atau filter di sheet.`);
+  f.push(B.kubus ? 'Filter dihitung dari tab Database BTT Rekap saat sinkron: hanya jumlah per periode, wilayah, jenis kelamin, dan kelompok usia yang dipublikasikan. ID partisipan tidak disimpan.' : 'Laporan ini hanya membaca angka agregat dari tab Dashboard BTT Rekap. Data per orang di tab Database tidak dibaca.');
   return f.map(esc);
 }
 
@@ -371,13 +410,20 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#gForm').addEventListener('submit', unlock);
   $('#gCode').focus();
   $('#per').onchange = e => setWeek(e.target.value);
+  document.addEventListener('change', e => {
+    if (e.target.id === 'bfPer') { ST.bf.per = e.target.value; render(); }
+    if (e.target.id === 'bfUsia') { ST.bf.usia = e.target.value; render(); }
+  });
   document.querySelectorAll('[data-theme-set]').forEach(b => b.onclick = () => setTheme(b.dataset.themeSet));
   $('#prev').onclick = () => step(-1); $('#next').onclick = () => step(1); $('#fsPrev').onclick = () => step(-1); $('#fsNext').onclick = () => step(1);
   $('#present').onclick = startPresent; $('#fsExit').onclick = stopPresent; $('#print').onclick = () => print();
   document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && document.body.classList.contains('present')) { document.body.classList.remove('present'); render(); } });
   document.addEventListener('click', e => {
     if (!D) return;
-    const t = e.target.closest('[data-sec],[data-wk],[data-kab],[data-btt],[data-dok],.ind-n'); if (!t) return;
+    const t = e.target.closest('[data-sec],[data-wk],[data-kab],[data-btt],[data-dok],[data-bf],[data-bfreset],.ind-n,.hasil-ul.clamp'); if (!t) return;
+    if (t.dataset.bf) { ST.bf[t.dataset.bf] = t.dataset.val; render(); return; }
+    if (t.dataset.bfreset) { ST.bf = { per: ST.bf.per, wil: 'Semua', jk: 'Semua', usia: 'Semua' }; render(); return; }
+    if (t.classList.contains('hasil-ul')) { t.classList.toggle('open'); return; }
     if (t.dataset.sec) setSec(t.dataset.sec);
     else if (t.dataset.wk !== undefined) setWeek(t.dataset.wk);
     else if (t.dataset.kab) { ST.kab = t.dataset.kab; render(); }

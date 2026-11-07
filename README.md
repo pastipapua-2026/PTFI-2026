@@ -9,10 +9,10 @@ Setup pertama kali: lihat **[PANDUAN_SETUP.md](PANDUAN_SETUP.md)**.
 | Bagian | Sumber |
 |---|---|
 | Sampul | minggu laporan (Senin–Minggu) |
-| 1 · Ringkasan | KPI minggu ini, highlight seluruh wilayah (narasi hasil kegiatan + jumlah peserta terpilah), highlight per kabupaten |
+| 1 · Ringkasan | KPI minggu ini, highlight (ringkasan semua kegiatan, per jenis kegiatan, hasil menonjol), tabel hasil kegiatan dengan Total/L/P, highlight per kabupaten |
 | 2 · Kegiatan | Weekly Update, tab Mimika, Nabire, Asmat: progres, peserta per kabupaten, daftar kegiatan dan hasil per kabupaten, agenda minggu berikutnya |
 | 3 · Dokumentasi | Folder Google Drive mingguan (tab Dokumentasi di Weekly Update), tampil dan bisa digeser di dalam laporan |
-| 4 · Partisipan | BTT Rekap, tab Dashboard (agregat) |
+| 4 · Partisipan | BTT Rekap, tab Database (agregat, filter periode/wilayah/jenis kelamin/usia) dan tab Dashboard |
 | 5 · Capaian indikator | MTT_PASTI_Papua_Y26, tab MTT_Y26_Long (YTD) |
 | Penutup | |
 

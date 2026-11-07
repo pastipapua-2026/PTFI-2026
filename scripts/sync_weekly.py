@@ -36,7 +36,7 @@ ITER = 250_000
 TAB_BTT = os.environ.get("BTT_TAB", "Dashboard")
 TAB_MTT = os.environ.get("MTT_TAB", "MTT_Y26_Long")
 TAB_DOK = os.environ.get("DOK_TAB", "Dokumentasi")
-HASIL_MAX = 700
+HASIL_MAX = 1600
 
 
 class SyncError(Exception):
@@ -65,6 +65,19 @@ def txt(cell):
     if isinstance(value, float) and value.is_integer():
         value = int(value)
     return re.sub(r"\s+", " ", str(value)).strip()
+
+
+def txt_lines(cell):
+    """Seperti txt(), tetapi baris baru dipertahankan (untuk Hasil Kegiatan berbentuk poin)."""
+    if not cell:
+        return ""
+    value = cell.get("f")
+    if value is None:
+        value = cell.get("v")
+    if value is None:
+        return ""
+    lines = [re.sub(r"[ \t\u00a0]+", " ", x).strip() for x in str(value).replace("\r", "").split("\n")]
+    return "\n".join(x for x in lines if x)
 
 
 def num(cell):
@@ -196,11 +209,96 @@ class GvizSource:
     def column_cells(self, tab, c0, c1):
         return self._get(tab, f"{c0}1:{c1}", 0)[1]
 
+    def select(self, tab, r0, r1, cols, where):
+        """Kolom tertentu dari baris r0..r1 yang memenuhi 'where' (kolom, nilai); dihitung di server Google."""
+        q = {"tqx": "out:json", "sheet": tab, "headers": "0", "range": f"A{r0}:{max(cols + [where[0]], key=col_index)}{r1}",
+             "tq": f"select {','.join(cols)} where {where[0]} = {where[1]}"}
+        url = f"https://docs.google.com/spreadsheets/d/{self.sid}/gviz/tq?" + urllib.parse.urlencode(q)
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (PASTI-Papua weekly sync)"})
+            with urllib.request.urlopen(req, timeout=120) as r:
+                body = r.read().decode("utf-8", "replace")
+        except (urllib.error.URLError, TimeoutError):
+            raise SyncError(f"{self.name} · {tab}: tidak bisa terhubung ke Google Sheets") from None
+        i = body.find("setResponse(")
+        if i < 0:
+            raise SyncError(f"{self.name} · {tab}: sheet tidak bisa dibaca tanpa login")
+        data = json.loads(body[i + 12: body.rfind(")")])
+        if data.get("status") == "error":
+            raise SyncError(f"{self.name} · {tab}: kueri ditolak ({str((data.get('errors') or [{}])[0].get('message', ''))[:80]})")
+        return [[c if c else None for c in (r.get("c") or [])] for r in (data.get("table") or {}).get("rows") or []]
+
     def block(self, tab, c0, r0, c1, r1):
         return self._get(tab, f"{c0}{r0}:{c1}{r1}", 1)
 
     def table(self, tab, header_row):
         return self._get(tab, None, header_row)
+
+
+class XlsxSource:
+    """Membaca ekspor .xlsx Google Sheets (nilai persis seperti diketik; tanpa tebakan tipe kolom).
+    Dipakai untuk Weekly Update: kolom tanggalnya bercampur tanggal asli dan teks seperti '14/11/2026'."""
+
+    def __init__(self, sheet_id, name, path=None):
+        self.sid, self.name, self.path, self.wb = sheet_id, name, path, None
+
+    def _book(self):
+        if self.wb is None:
+            import io as _io
+            import warnings
+            import openpyxl
+            if self.path:
+                data = open(self.path, "rb").read()
+            else:
+                url = f"https://docs.google.com/spreadsheets/d/{self.sid}/export?format=xlsx"
+                try:
+                    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (PASTI-Papua weekly sync)"})
+                    with urllib.request.urlopen(req, timeout=120) as r:
+                        data = r.read()
+                except (urllib.error.URLError, TimeoutError):
+                    raise SyncError(f"{self.name}: ekspor .xlsx gagal diunduh (cek pengaturan berbagi)") from None
+                if not data.startswith(b"PK"):
+                    raise SyncError(f"{self.name}: sheet tidak bisa diunduh tanpa login. Bagikan 'Siapa saja yang memiliki link · Viewer'.")
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.wb = openpyxl.load_workbook(_io.BytesIO(data), data_only=True, read_only=True)
+        return self.wb
+
+    def grid(self, tab):
+        wb = self._book()
+        if tab not in wb.sheetnames:
+            raise SyncError(f"{self.name}: tab {tab} tidak ada")
+        out = []
+        for row in wb[tab].iter_rows(values_only=True):
+            cells = []
+            for v in row:
+                if v is None or v == "":
+                    cells.append(None)
+                elif isinstance(v, datetime):
+                    cells.append({"v": f"Date({v.year},{v.month - 1},{v.day})", "f": v.strftime("%d/%m/%Y")})
+                elif isinstance(v, date):
+                    cells.append({"v": f"Date({v.year},{v.month - 1},{v.day})", "f": v.strftime("%d/%m/%Y")})
+                elif isinstance(v, (int, float)) and not isinstance(v, bool):
+                    cells.append({"v": float(v), "f": None})
+                else:
+                    cells.append({"v": str(v), "f": str(v)})
+            out.append(cells)
+        while out and not any(out[-1]):
+            out.pop()
+        return out
+
+    column_cells = lambda self, tab, c0, c1: [ApiSource._slice(None, r, c0, c1) for r in self.grid(tab)]
+
+    def block(self, tab, c0, r0, c1, r1):
+        g = self.grid(tab)
+        rows = [ApiSource._slice(None, g[i] if i < len(g) else [], c0, c1) for i in range(r0 - 1, r1)]
+        return [txt(c) for c in rows[0]], rows[1:]
+
+    def table(self, tab, header_row):
+        g = self.grid(tab)
+        width = max((len(r) for r in g), default=0)
+        head = [" ".join(txt(r[j]) if j < len(r) else "" for r in g[:header_row]).strip() for j in range(width)]
+        return head, [list(r) + [None] * (width - len(r)) for r in g[header_row:]]
 
 
 class ApiSource:
@@ -236,6 +334,29 @@ class ApiSource:
         self.cache[tab] = rows
         return rows
 
+    def select(self, tab, r0, r1, cols, where):
+        last = max(cols + [where[0]], key=col_index)
+        rng = urllib.parse.quote(f"{tab}!A{r0}:{last}{r1}")
+        base = f"https://sheets.googleapis.com/v4/spreadsheets/{self.sid}/values/{rng}"
+        got = {}
+        for opt in ("UNFORMATTED_VALUE", "FORMATTED_VALUE"):
+            res = self.session.get(base, params={"valueRenderOption": opt, "dateTimeRenderOption": "SERIAL_NUMBER"}, timeout=120)
+            if res.status_code != 200:
+                raise SyncError(f"{self.name} · {tab}: Google Sheets API HTTP {res.status_code}")
+            got[opt] = res.json().get("values", [])
+        out, wi = [], col_index(where[0])
+        for i, row in enumerate(got["UNFORMATTED_VALUE"]):
+            frow = got["FORMATTED_VALUE"][i] if i < len(got["FORMATTED_VALUE"]) else []
+            if wi < len(row) and str(row[wi]).strip() in (str(where[1]), f"{where[1]}.0"):
+                cells = []
+                for c in cols:
+                    j = col_index(c)
+                    v = row[j] if j < len(row) else None
+                    f = frow[j] if j < len(frow) else None
+                    cells.append({"v": v, "f": str(f) if f is not None else None} if v not in ("", None) else None)
+                out.append(cells)
+        return out
+
     def _slice(self, row, c0, c1):
         row = row or []
         return [(row[j] if j < len(row) else None) for j in range(col_index(c0), col_index(c1) + 1)]
@@ -260,6 +381,10 @@ class ApiSource:
 WEEKLY_FIELDS = [
     ("id", r"(^|\s)(id|no\.?|kode)$"),
     ("nama", r"nama kegiatan$"),
+    ("nama_ubah", r"nama kegiatan jika ada perubahan"),
+    ("bulan", r"(^|\s)bulan$"),
+    ("tujuan", r"tujuan( kegiatan)?$"),
+    ("pic", r"(^|\s)pic$"),
     ("mulai", r"(tanggal|tgl)\.? ?mulai$"),
     ("selesai", r"((tanggal|tgl)\.? ?selesai|jadwal selesai)$"),
     ("output", r"(kontribusi output|(^|\s)output)$"),
@@ -307,29 +432,54 @@ def map_fields(labels, fields, where):
 
 def clean_text(s, limit=None):
     s = re.sub(r"https?://\S+", "", s or "")
-    s = re.sub(r"[ \t]+", " ", s).strip(" -–·")
+    s = "\n".join(re.sub(r"[ \t]+", " ", x).strip() for x in s.split("\n") if x.strip()).strip(" -–·")
     s = re.sub(r"\s*\b(detail|link|lihat|foto|dokumentasi)\s*:?\s*$", "", s, flags=re.I).rstrip(" :-–·")
     if limit and len(s) > limit:
         s = s[: limit - 1].rsplit(" ", 1)[0] + "…"
     return s
 
 
+_N = r"(\d{1,4})"
+_SEP = r"\s*[:=]?\s*"
+SEX_L = [rf"\b(?:laki[\s-]*laki|pria){_SEP}{_N}\b", rf"\bL\s*[:=]\s*{_N}\b"]
+SEX_P = [rf"\b(?:perempuan|wanita){_SEP}{_N}\b", rf"\bP\s*[:=]\s*{_N}\b",
+         rf"\b(?:ibu\s+hamil|ibu\s+nifas|ibu\s+menyusui|bumil){_SEP}{_N}\b"]
+TOTAL = [rf"\b(?:total|jumlah)(?:\s+sasaran)?(?:\s+(?:hadir|peserta|kehadiran))?{_SEP}{_N}\b",
+         rf"\bkeseluruhan{_SEP}{_N}\b", rf"\b{_N}\s*(?:orang\s+)?peserta"]
+GROUP_A = rf"(?<![:=])(?<![:=]\s)(?<![:=]\s\s)\b{_N}\s*(?:orang\s+)?(baduta|balita|bayi)\b"
+GROUP_B = rf"\b(baduta|balita|bayi)\b(?!\s*(?:laki|perempuan|pria|wanita))\s*(?:yang\s+hadir\s+ada|yang\s+hadir|hadir|ada)?{_SEP}{_N}\b"
+
+
 def peserta_teks(text):
-    """Jumlah peserta yang ditulis eksplisit di teks Hasil, mis. 'Laki-laki: 4 orang, Perempuan: 2 orang, Total: 6'.
-    Hanya dipakai bila kolom peserta kosong. Bila satu label muncul lebih dari sekali, angka tidak dipakai (tidak dijumlahkan)."""
+    """Menyaring jumlah peserta dari narasi Hasil Kegiatan.
+    - Angka berlabel jenis kelamin dijumlahkan (Laki-laki/Pria/L:, Perempuan/Wanita/P:, ibu hamil/nifas/menyusui = perempuan).
+    - Total: angka 'Total/Jumlah/Keseluruhan …' atau 'N (orang) peserta'; bila tidak ada, jumlah kelompok (baduta/balita/bayi);
+      bila tidak ada juga, laki-laki + perempuan.
+    - Bila total ≠ laki-laki + perempuan, angka tetap dipakai tetapi diberi tanda 'cek'."""
     t = text or ""
-    L = re.findall(r"\blaki[\s-]*laki\b\s*[:=]?\s*(\d{1,4})", t, re.I)
-    P = re.findall(r"\bperempuan\b\s*[:=]?\s*(\d{1,4})", t, re.I)
-    T = re.findall(r"\b(?:total|keseluruhan|jumlah peserta)\b\s*[:=]?\s*(\d{1,4})", t, re.I)
-    if not (L or P or T):
+    find = lambda pats: [int(m) for pat in pats for m in re.findall(pat, t, re.I)]
+    L, P, T = find(SEX_L), find(SEX_P), find(TOTAL)
+    grp = {}
+    for n, g in re.findall(GROUP_A, t, re.I):
+        grp[g.lower()] = grp.get(g.lower(), 0) + int(n)
+    for g, n in re.findall(GROUP_B, t, re.I):
+        grp[g.lower()] = grp.get(g.lower(), 0) + int(n)
+    if not (L or P or T or grp):
         return None, None
-    if len(L) > 1 or len(P) > 1 or len(T) > 1:
-        return None, "ganda"
-    l, p = (int(L[0]) if L else None), (int(P[0]) if P else None)
-    tot = int(T[0]) if T else (l or 0) + (p or 0)
-    if T and l is not None and p is not None and tot != l + p:
-        return None, "beda"
-    return {"l": l, "p": p, "t": tot, "src": "teks"}, None
+    l, p = (sum(L) if L else None), (sum(P) if P else None)
+    if T:
+        tot = max(T)
+    elif grp:
+        tot = sum(grp.values())
+    else:
+        tot = (l or 0) + (p or 0)
+    out = {"l": l, "p": p, "t": tot, "src": "teks"}
+    if grp:
+        out["grp"] = grp
+    if l is not None and p is not None and tot != l + p:
+        out["cek"] = f"laki-laki + perempuan = {l + p}, total = {tot}"
+        return out, "beda"
+    return out, None
 
 
 def peserta_kolom(l, p, t):
@@ -355,7 +505,9 @@ def parse_weekly_tab(tab, labels, rows):
         if need not in m:
             raise SyncError(f"Weekly Update · tab {tab}: kolom '{need}' tidak ditemukan (struktur sheet berubah?)")
     get = lambda r, k: r[m[k]] if k in m and m[k] < len(r) else None
-    acts, notes = [], {"tanpa_tanggal": 0, "kab_beda": 0, "status_lain": set(), "id_ganda": set(), "peserta_cek": [], "tanpa_peserta": 0}
+    acts, notes = [], {"tanpa_tanggal": 0, "kab_beda": 0, "status_lain": set(), "id_ganda": set(), "peserta_cek": [], "tanpa_peserta": 0,
+                       "geser": [], "tukar": [], "bulan_beda": []}
+    gray = sorted(m[k] for k in ("tujuan", "pic", "output", "kabupaten", "lokasi") if k in m)
     seen = set()
     for r in rows:
         nama = txt(get(r, "nama"))
@@ -364,7 +516,44 @@ def parse_weekly_tab(tab, labels, rows):
             continue
         mulai, selesai, upd = to_date(get(r, "mulai")), to_date(get(r, "selesai")), to_date(get(r, "upd"))
         status = txt(get(r, "status"))
-        kab_col = txt(get(r, "kabupaten"))
+        kab_col, output, lokasi = txt(get(r, "kabupaten")), txt(get(r, "output")), txt(get(r, "lokasi"))
+        # kolom dari Rencana Kerja bisa bergeser satu kolom (PIC di kolom Tujuan, dst.): baca dari posisi isinya
+        if gray:
+            seg = list(range(gray[0], gray[-1] + 1))
+            vals = {j: txt(r[j]) if j < len(r) else "" for j in seg}
+            kj = next((j for j in seg if vals[j].lower() == tab.lower()), None)
+            if kj is not None and kj != m.get("kabupaten"):
+                notes["geser"].append(rid or nama[:20])
+                kab_col = vals[kj]
+                lokasi = vals.get(kj + 1, "") if (kj + 1) in vals and not re.match(r"(?i)^(output|manajemen)", vals.get(kj + 1, "")) else ""
+            if not re.match(r"(?i)^(output\s*\d|manajemen)", output or ""):
+                output = next((vals[j] for j in seg if re.match(r"(?i)^(output\s*\d|manajemen)", vals[j])), "")
+        # tanggal yang hari/bulannya tertukar (mis. 11/06 untuk 6 November): ikuti kolom Bulan, dan dicatat
+        bln = to_date(get(r, "bulan"))
+        if not bln and to_month(get(r, "bulan")):
+            yy, mm = map(int, to_month(get(r, "bulan")).split("-"))
+            bln = date(yy, mm, 1)
+        tgl_asli = ""
+        if mulai and bln and (mulai.year, mulai.month) != (bln.year, bln.month):
+            sw = None
+            if mulai.day <= 12:
+                try:
+                    sw = date(mulai.year, mulai.day, mulai.month)
+                except ValueError:
+                    sw = None
+            if sw and (sw.year, sw.month) == (bln.year, bln.month):
+                tgl_asli = mulai.strftime("%d/%m/%Y")
+                notes["tukar"].append(rid or nama[:20])
+                if selesai and selesai.day <= 12:
+                    try:
+                        ss = date(selesai.year, selesai.day, selesai.month)
+                        if ss >= sw and abs((ss - sw).days) < abs((selesai - sw).days):
+                            selesai = ss
+                    except ValueError:
+                        pass
+                mulai = sw
+            else:
+                notes["bulan_beda"].append(rid or nama[:20])
         if not mulai:
             notes["tanpa_tanggal"] += 1
         if kab_col and kab_col.lower() != tab.lower():
@@ -375,18 +564,19 @@ def parse_weekly_tab(tab, labels, rows):
             if rid in seen:
                 notes["id_ganda"].add(rid)
             seen.add(rid)
-        hasil_raw = txt(get(r, "hasil"))
+        hasil_raw = txt_lines(get(r, "hasil"))
         pes = peserta_kolom(num(get(r, "l")), num(get(r, "p")), num(get(r, "tot")))
         if pes is None:
             pes, why = peserta_teks(hasil_raw)
             if why:
-                notes["peserta_cek"].append(rid or nama[:30])
+                notes["peserta_cek"].append(f"{rid or nama[:30]} ({pes['cek']})")
         if pes is None and mulai and status_key(status) == "selesai":
             notes["tanpa_peserta"] += 1
         acts.append({
-            "id": rid, "kab": tab, "nama": clean_text(nama, 220), "peserta": pes,
+            "id": rid, "kab": tab, "nama": clean_text(txt(get(r, "nama_ubah")) or nama, 220),
+            "nama_rencana": clean_text(nama, 220) if txt(get(r, "nama_ubah")) else "", "peserta": pes, "tgl_asli": tgl_asli,
             "mulai": mulai.isoformat() if mulai else "", "selesai": selesai.isoformat() if selesai else "",
-            "output": clean_text(txt(get(r, "output")), 60), "lokasi": clean_text(txt(get(r, "lokasi")), 120),
+            "output": clean_text(output, 60), "lokasi": clean_text(lokasi, 120),
             "status": status[:60], "hasil": clean_text(hasil_raw, HASIL_MAX),
             "foto": bool(txt(get(r, "foto"))), "dh": bool(txt(get(r, "dh"))), "upd": upd.isoformat() if upd else "",
         })
@@ -411,7 +601,13 @@ def load_weekly(src):
         if n["tanpa_peserta"]:
             catatan.append(f"{tab}: {n['tanpa_peserta']} kegiatan Selesai belum mencatat jumlah peserta (kolom Peserta Laki-laki/Perempuan/Total, atau tulis di Hasil).")
         if n["peserta_cek"]:
-            catatan.append(f"{tab}: jumlah peserta di teks Hasil {', '.join(n['peserta_cek'][:6])} tidak dipakai karena labelnya ganda atau totalnya tidak sama dengan laki-laki + perempuan; isi kolom peserta.")
+            catatan.append(f"{tab}: jumlah peserta di Hasil Kegiatan tidak konsisten: {'; '.join(n['peserta_cek'][:6])}. Angka ditampilkan dengan tanda cek; mohon dikoreksi di sheet.")
+        if n["geser"]:
+            catatan.append(f"{tab}: kolom dari Rencana Kerja bergeser satu kolom di {len(n['geser'])} baris (PIC berada di kolom Tujuan, Output di kolom PIC, Kabupaten di kolom Output). Laporan membaca Output dan Lokasi dari posisi isinya; perbaiki urutan kolom IMPORTRANGE di Weekly Update.")
+        if n["tukar"]:
+            catatan.append(f"{tab}: Tanggal Mulai {', '.join(n['tukar'])} tampaknya tertukar hari dan bulannya (mis. 11/06 untuk 6 November). Laporan memakai tanggal yang sesuai kolom Bulan dan menandainya; perbaiki di Rencana Kerja.")
+        if n["bulan_beda"]:
+            catatan.append(f"{tab}: Tanggal Mulai {', '.join(n['bulan_beda'])} tidak sesuai kolom Bulan dan tidak bisa disesuaikan otomatis; perbaiki di Rencana Kerja.")
     if not acts:
         raise SyncError("Weekly Update: tidak ada kegiatan terbaca dari tab Mimika, Nabire, dan Asmat")
     dok, note = load_dok(src)
@@ -558,8 +754,112 @@ def load_btt(src, tab=TAB_BTT):
         mk = to_month(r[m["b"]])
         if mk:
             bulanan.append({"m": mk, **{key: num(r[i]) or 0 for key, i in m.items() if key != "b"}})
-    return {"cakupan": scope, "kpi": kpi, "per_file": per_file, "usia": usia, "outcome": outcome,
-            "recap": recap, "mov": mov, "bulanan": bulanan}
+    out = {"cakupan": scope, "kpi": kpi, "per_file": per_file, "usia": usia, "outcome": outcome,
+           "recap": recap, "mov": mov, "bulanan": bulanan, "kubus": None, "catatan": []}
+    try:
+        kb = load_btt_kubus(src)
+        out["kubus"] = kb
+        # cek silang dengan kartu Dashboard bila cakupannya Tahun penuh, semua bulan, semua kabupaten
+        mm = re.match(r"Tahun (\d{4})", scope or "")
+        if mm and re.search(r"semua bulan", scope, re.I) and re.search(r"semua kabupaten", scope, re.I):
+            rows = kb["p"].get(f"y{mm[1]}", [])
+            u = sum(r[3] for r in rows)
+            kb["cek"] = {"periode": f"Tahun {mm[1]}", "u_hitung": u, "u_dashboard": kpi.get("u"), "cocok": u == kpi.get("u")}
+    except SyncError as e:
+        out["catatan"].append(f"Filter bulan/wilayah/jenis kelamin/usia belum aktif: {e}. Angka memakai tab Dashboard saja.")
+    except Exception as e:  # tidak menghentikan sinkron
+        out["catatan"].append(f"Filter BTT belum aktif ({type(e).__name__}); angka memakai tab Dashboard saja.")
+    return out
+
+
+# ---------------------------------------------------------------- BTT Rekap · Database (filter bulan, wilayah, JK, usia)
+DB_TAB = os.environ.get("BTT_DB_TAB", "Database")
+DB_HEAD = 14                                                     # baris judul kolom (template BTT_Rekap)
+PZONE = {"Nabire": (15, 7514), "Mimika": (7515, 15014), "Asmat": (15015, 22514)}    # 7.500 baris partisipan per kabupaten
+KZONE = {"Nabire": (15, 1014), "Mimika": (1015, 2014), "Asmat": (2015, 3014)}       # 1.000 baris kegiatan per kabupaten
+USIA = ["0-5.99 mo", "6-23.99 mo", "24-59.99 mo", "5-11.99 yo", "12-17.99 yo", "Dewasa", "Belum diketahui"]
+
+
+def _jk(s):
+    s = (s or "").strip().lower()
+    return "L" if s in ("l", "laki-laki", "laki laki", "pria") else "P" if s in ("p", "perempuan", "wanita") else "?"
+
+
+def _outcome(s):
+    m = re.search(r"([123])", s or "")
+    return int(m[1]) if m else 0
+
+
+def load_btt_kubus(src, tab=DB_TAB):
+    """Partisipan unik per periode × wilayah × jenis kelamin × kelompok usia, dan pelaksanaan per periode × file BTT.
+    Definisi sama dengan Dashboard BTT Rekap: beridentitas (Ident = 1), bukan duplikat, minimal 1 tanda hadir dalam periode.
+    Hanya hitungan yang keluar dari fungsi ini; ID partisipan tidak disimpan."""
+    labels, _ = src.block(tab, "A", DB_HEAD, "DQ", DB_HEAD + 1)
+    lab = [norm_label(x) for x in labels]
+    pos = lambda name: next((col_name(i) for i, x in enumerate(lab) if x == name.lower()), None)
+    pc = {k: pos(n) for k, n in (("ident", "Ident"), ("dup", "Dup"), ("kab", "Kab"), ("jk", "JK"), ("usia", "Kelompok usia"))}
+    months = []
+    for i, x in enumerate(lab[:col_index("BA")]):
+        mm = re.fullmatch(r"([a-z]+)\.?\s+(\d{4})", x)
+        if mm and mm[1][:3] in MONTHS:
+            months.append((col_name(i), f"{mm[2]}-{MONTHS[mm[1][:3]]:02d}"))
+    kc = {k: pos(k) for k in ("Nama", "Out", "Tgl1", "Hadir", "Aktif", "M18", "F18", "Boy", "Girl", "Unk")}
+    miss = [k for k, v in {**pc, **kc}.items() if not v]
+    if miss or len(months) < 6:
+        raise SyncError(f"BTT Rekap · {tab}: kolom {', '.join(miss) or 'bulan'} tidak ditemukan di baris {DB_HEAD}")
+    mk = [m for _, m in months]
+    persons = []
+    for kab, (a, b) in PZONE.items():
+        cols = [pc["dup"], pc["kab"], pc["jk"], pc["usia"]] + [c for c, _ in months]
+        for r in src.select(tab, a, b, cols, (pc["ident"], 1)):
+            dup = r[0]
+            if dup and (num(dup) == 1 or "dup" in txt(dup).lower()):
+                continue
+            wil = txt(r[1]) if txt(r[1]) in KAB else "Lainnya"
+            usia = txt(r[3]) if txt(r[3]) in USIA else "Belum diketahui"
+            cnt = [int(num(c) or 0) for c in r[4:]] + [0] * (len(months) - len(r[4:]))
+            if any(cnt):
+                persons.append((wil, _jk(txt(r[2])), usia, cnt))
+    acts = []
+    for kab, (a, b) in KZONE.items():
+        cols = [kc[k] for k in ("Nama", "Out", "Tgl1", "Hadir", "M18", "F18", "Boy", "Girl", "Unk")]
+        for r in src.select(tab, a, b, cols, (kc["Aktif"], 1)):
+            d = to_date(r[2])
+            acts.append((kab, txt(r[0]).lower(), d.isoformat() if d else "", f"{d.year}-{d.month:02d}" if d else "", _outcome(txt(r[1])),
+                         [int(num(c) or 0) for c in r[3:9]]))
+    # periode: semua, tahun, tahun fiskal WVI (Okt–Sep), dan bulan yang punya data
+    used = sorted({mk[i] for _, _, _, c in persons for i, v in enumerate(c) if v} | {a[3] for a in acts if a[3]})
+    per = [("all", "Semua periode", set(mk))]
+    for y in sorted({m[:4] for m in used}):
+        per.append((f"y{y}", f"Tahun {y}", {m for m in mk if m.startswith(y)}))
+    for fy in sorted({int(m[:4]) + (1 if int(m[5:]) >= 10 else 0) for m in used}):
+        per.append((f"fy{fy}", f"FY{fy} (Okt {fy - 1}–Sep {fy})", {m for m in mk if (m >= f"{fy - 1}-10" and m <= f"{fy}-09")}))
+    per += [(f"m{m}", m, {m}) for m in used]
+    P, K = {}, {}
+    for key, _, months_set in per:
+        idx = [i for i, m in enumerate(mk) if m in months_set]
+        agg = {}
+        for wil, jk, usia, cnt in persons:
+            hd = sum(cnt[i] for i in idx)
+            if hd:
+                g = agg.setdefault((wil, jk, usia), [0, 0])
+                g[0] += 1
+                g[1] += hd
+        P[key] = [[w, j, u, v[0], v[1]] for (w, j, u), v in sorted(agg.items())]
+        kag, seen = {}, set()
+        for kab, nama, tgl, bulan, out, nums in acts:
+            if key != "all" and bulan not in months_set:
+                continue
+            g = kag.setdefault(kab, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])   # pel, hd, o1, o2, o3, o0, M18, F18, Boy, Girl, Unk
+            g[1] += nums[0]
+            for j in range(5):
+                g[6 + j] += nums[1 + j]
+            if (kab, nama, tgl) not in seen:
+                seen.add((kab, nama, tgl))
+                g[0] += 1
+                g[2 + (out - 1 if out else 3)] += 1
+        K[key] = [[k] + v for k, v in sorted(kag.items())]
+    return {"periode": [[k, lab_] for k, lab_, _ in per], "p": P, "k": K, "usia": USIA}
 
 
 # ---------------------------------------------------------------- MTT · long data
@@ -673,6 +973,8 @@ def main(argv):
         session = AuthorizedSession(creds)
     labels = {"weekly": "Weekly Update", "btt": "BTT Rekap", "mtt": "MTT"}
     sources = {k: make_source(env[v].strip(), labels[k], session) for k, v in names.items()}
+    if not session:  # Weekly Update dibaca dari ekspor .xlsx: nilai persis, termasuk tanggal yang diketik sebagai teks
+        sources["weekly"] = XlsxSource(env["SHEET_WEEKLY_ID"].strip(), labels["weekly"])
     payload = build_payload(sources)
     code = env["DASHBOARD_ACCESS_CODE"]
     if OUT.exists():

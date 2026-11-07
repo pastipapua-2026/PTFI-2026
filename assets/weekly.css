@@ -148,3 +148,34 @@ body.locked .top,body.locked main,body.locked .pager{visibility:hidden}
 @media print{#gate{display:none}.fbar{display:none!important}.notice{break-inside:avoid}
   .panel,.ph.pg-head{background:#fff!important;transform:none!important}.drive-frame{display:none}.dok-help{display:none}.dok-print{display:block;font-size:12px}}
 @media (prefers-reduced-motion:reduce){.panel:hover,.ph.pg-head:hover,.cover:hover{transform:none}}
+
+/* ---------- highlight bertingkat (7 Nov 2026) ---------- */
+.hl-secs{gap:14px}
+.hl-sec h4{margin:0 0 8px;font-size:11.5px;font-weight:800;color:var(--or);text-transform:uppercase;letter-spacing:.4px}
+.hl-sec+.hl-sec{border-top:1px solid var(--line);padding-top:12px}
+
+/* ---------- tabel hasil kegiatan: Total/L/P + poin hasil ---------- */
+.hasil-t td.pes-n{vertical-align:top;font-variant-numeric:tabular-nums}
+.hasil-t td.pes-n b{font-size:14px}
+.hasil-t td.pes-n .src-t{display:block;width:max-content;margin-left:auto}
+.hasil-ul{margin:0;padding-left:16px;font-size:12px;color:var(--ink2);line-height:1.5}
+.hasil-ul li+li{margin-top:3px}
+.hasil-ul.clamp{max-height:7.6em;overflow:hidden;cursor:pointer;position:relative}
+.hasil-ul.clamp::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.6em;background:linear-gradient(transparent,var(--card))}
+.hasil-ul.clamp.open{max-height:none}.hasil-ul.clamp.open::after{display:none}
+.hasil-t.ringkas td{vertical-align:top}
+
+/* ---------- filter BTT ---------- */
+.bfbar{padding:12px 16px;gap:8px}
+.bf-grid{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 22px}
+.bf-f{display:flex;flex-direction:column;gap:5px;min-width:0}
+.bf-f .sel{min-width:200px}
+.bf-reset{margin-left:auto}
+.bf-note{font-size:11.5px;color:var(--mut)}
+.chip:disabled,.sel:disabled{opacity:.45;cursor:not-allowed}
+.grp.dim{opacity:.38}
+@media (max-width:760px){
+  .bf-grid{flex-direction:column;align-items:stretch}.bf-f .sel{min-width:0;width:100%}.bf-reset{margin-left:0}
+  .hasil-t td.pes-n .src-t{margin-left:0}
+  .hasil-ul{text-align:left}
+}

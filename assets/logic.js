@@ -150,25 +150,82 @@
   const MTT_ST = { ok: ['b-ok', 'Tercapai'], warn: ['b-warn', 'Belum tercapai'], bad: ['b-bad', 'Belum ada capaian'], na: ['b-mute', 'Tidak ditargetkan'], rincian: ['b-mute', 'Rincian'] };
 
   /* ---------------- highlight otomatis ---------------- */
+  /* ---------------- Hasil Kegiatan: poin, baris angka peserta, tema, hasil menonjol ---------------- */
+  function hasilPoints(h) {
+    const out = [];
+    String(h || '').split(/\n/).map(x => x.trim()).filter(Boolean).forEach(x => {
+      if (/^\(/.test(x) && out.length) out[out.length - 1] += ' ' + x; else out.push(x);
+    });
+    return out.map(x => x.replace(/^(?:[-–•*·]+|\d{1,2}[.)])\s*/, '').trim()).filter(Boolean);
+  }
+  /* baris yang isinya hanya angka kehadiran (sudah tampil di kolom Total/L/P) */
+  function isCountLine(x) {
+    if (!/\d/.test(x)) return /^sasaran\s+yang\s+hadir:?$/i.test(x);
+    const rest = x.replace(/\d+/g, ' ').replace(/laki[\s-]*laki|perempuan|pria|wanita|\bL\b|\bP\b|total|jumlah|keseluruhan|pesertaa?|baduta|balita|bayi|anak|ibu\s+hamil|ibu\s+nifas|ibu\s+menyusui|lansia|usia\s+dewasa|dewasa|sasaran|yang|hadiri?|ada|orang|di|untuk|pelatihan|tahun|[():;,.=≥%]/gi, ' ');
+    return rest.split(/\s+/).filter(w => w.length > 1).length <= 1;
+  }
+  const mainPoints = (h, n = 3, max = 190) => hasilPoints(h).filter(x => !isCountLine(x)).slice(0, n).map(x => x.length > max ? x.slice(0, max - 1).replace(/\s+\S*$/, '') + '…' : x);
+  const TEMA = [['Pendampingan kader', /pendampingan\s+kader/i], ['Koordinasi dan advokasi', /rembuk|audiensi|rapat|koordinasi|workshop|musyawarah|temu\b|advokasi|budget|pertemuan/i],
+    ['Posyandu', /posyandu/i], ['PMT dan pemulihan gizi', /\bpmt\b|pos\s+gizi|demo\s+masak|pemulihan/i], ['Pelatihan', /pelatihan|sdidtk|pmba|training/i],
+    ['Edukasi dan penyuluhan', /edukasi|kelas|penyuluhan|sosialisasi/i], ['Manajemen dan MEAL', /activity\s+tracker|rekap|meal/i]];
+  function tema(a) {
+    const s = `${a.nama} ${a.nama_rencana || ''}`;
+    for (const [t, re] of TEMA) if (re.test(s)) return t;
+    for (const [t, re] of TEMA) if (re.test(a.hasil || '')) return t;
+    return 'Lainnya';
+  }
+  const SKOR = [[/berkomitmen|komitmen/i, 3], [/bersepakat|sepakat|kesepakatan/i, 3], [/dirujuk|rujukan|merujuk/i, 2], [/naik|meningkat|peningkatan|penurunan/i, 2],
+    [/\bsiap\b/i, 2], [/model|percontohan/i, 2], [/pengetahuan\s+baru|perubahan|mengubah/i, 2], [/akan\s+memulai|mulai\s+bulan/i, 1], [/pangan\s+lokal|pmba|asi\b/i, 1]];
+  function skor(x) { let n = SKOR.reduce((t, [re, w]) => t + (re.test(x) ? w : 0), 0); if (/\d/.test(x)) n += 1; if (x.length < 40) n -= 2; return n; }
+  /* hasil yang menonjol: satu poin terbaik per kegiatan, skor tertinggi lebih dulu */
+  function menonjol(acts, n = 4) {
+    return acts.filter(a => ['selesai', 'berjalan'].includes(stKey(a.status)) && a.hasil)
+      .map(a => { const P = hasilPoints(a.hasil).filter(x => !isCountLine(x)).map(x => [skor(x), x]).sort((p, q) => q[0] - p[0]); return P.length ? { a, s: P[0][0], t: P[0][1] } : null; })
+      .filter(x => x && x.s >= 3).sort((p, q) => q.s - p.s).slice(0, n)
+      .map(({ a, t }) => ({ k: 'ok', b: `${a.kab} · ${a.nama}:`, t: t.length > 260 ? t.slice(0, 259).replace(/\s+\S*$/, '') + '…' : t }));
+  }
+  function temaRingkas(acts) {
+    const G = {};
+    acts.filter(a => stKey(a.status) !== 'batal').forEach(a => { (G[tema(a)] = G[tema(a)] || []).push(a); });
+    return Object.entries(G).sort((p, q) => q[1].length - p[1].length).map(([t, A]) => {
+      const sel = A.filter(a => stKey(a.status) === 'selesai').length, kabs = KAB.filter(k => A.some(a => a.kab === k));
+      const g = aggregate(A, '9999-12-31'), grp = {};
+      A.forEach(a => Object.entries((a.peserta && a.peserta.grp) || {}).forEach(([k, v]) => { grp[k] = (grp[k] || 0) + v; }));
+      const lok = [...new Set(A.map(a => a.lokasi).filter(x => x && !/tingkat/i.test(x)))];
+      const ps = g.pesT ? ` · ${fN(g.pesT)} peserta${g.pesL || g.pesP ? ` (laki-laki ${fN(g.pesL)}, perempuan ${fN(g.pesP)}${g.pesTanpaJK ? `, ${fN(g.pesTanpaJK)} belum dipilah` : ''})` : ''}` : '';
+      const gr = Object.keys(grp).length ? `, termasuk ${Object.entries(grp).map(([k, v]) => `${fN(v)} ${k}`).join(', ')}` : '';
+      return { k: 'info', b: `${t}:`, t: `${fN(A.length)} kegiatan (${fN(sel)} selesai) di ${kabs.join(', ')}${ps}${gr}.` + (lok.length ? ` Lokasi: ${listText(lok, 4)}.` : '') };
+    });
+  }
+
+  /* highlight minggu ini: ringkasan semua kegiatan → per jenis kegiatan → hasil menonjol → catatan lain */
   function hlProgram(c) {
-    const H = [], t = c.agg, kabs = KAB.filter(k => c.byKab[k] && c.byKab[k].total);
-    if (!t.total) H.push({ k: 'info', t: 'Belum ada kegiatan dengan Tanggal Mulai di minggu ini pada Weekly Update.' });
+    const S = [], t = c.agg, kabs = KAB.filter(k => c.byKab[k] && c.byKab[k].total);
+    const top = [];
+    if (!t.total) top.push({ k: 'info', t: 'Belum ada kegiatan dengan Tanggal Mulai di minggu ini pada Weekly Update.' });
     else {
-      H.push({ k: 'ok', t: `${fN(t.selesai)} dari ${fN(t.aktif)} kegiatan terjadwal minggu ini sudah selesai (${fP(t.pct)}), di ${kabs.length} kabupaten: ${kabs.map(k => `${k} ${c.byKab[k].total}`).join(', ')}.` + (t.berjalan ? ` ${fN(t.berjalan)} kegiatan masih berjalan.` : '') });
+      top.push({ k: 'ok', t: `${fN(t.selesai)} dari ${fN(t.aktif)} kegiatan terjadwal minggu ini sudah selesai (${fP(t.pct)}), di ${kabs.length} kabupaten: ${kabs.map(k => `${k} ${c.byKab[k].total}`).join(', ')}.` + (t.berjalan ? ` ${fN(t.berjalan)} kegiatan masih berjalan.` : '') });
       const ps = pesSummary(t);
-      if (ps) H.push({ k: 'info', b: 'Peserta minggu ini:', t: ps + ' Satu orang bisa hadir di lebih dari satu kegiatan.' });
-      if (c.acts) narrSort(c.acts).slice(0, c.nNarr || 4).forEach(a => H.push(narr(a, true)));
-      if (t.tl) H.push({ k: 'warn', t: `Perlu tindak lanjut: ${fN(t.tl)} kegiatan tertunda atau lewat jadwal (${KAB.filter(k => c.byKab[k] && c.byKab[k].tl).map(k => `${k} ${c.byKab[k].tl}`).join(', ')}).` });
+      if (ps) top.push({ k: 'info', b: 'Peserta:', t: ps + ' Satu orang bisa hadir di lebih dari satu kegiatan.' });
     }
+    S.push({ judul: '', items: top });
+    if (c.acts && c.acts.length) {
+      S.push({ judul: 'Per jenis kegiatan', items: temaRingkas(c.acts) });
+      const M = menonjol(c.acts, c.nNarr || 4);
+      if (M.length) S.push({ judul: 'Hasil yang menonjol', items: M });
+    }
+    const lain = [];
+    if (t.tl) lain.push({ k: 'warn', t: `Perlu tindak lanjut: ${fN(t.tl)} kegiatan tertunda atau lewat jadwal (${KAB.filter(k => c.byKab[k] && c.byKab[k].tl).map(k => `${k} ${c.byKab[k].tl}`).join(', ')}).` });
     if (c.btt && c.btt.kpi) {
       const k = c.btt.kpi, last = bttLastMonth(c.btt.bulanan);
-      H.push({ k: 'info', t: `BTT mencatat ${fN(k.u)} partisipan unik (cakupan ${(c.btt.cakupan || '').split('·')[0].replace(/\s*\(.*\)\s*$/, '').trim() || 'rekap'}), ${fP(k.u ? k.p / k.u : null)} perempuan, dari ${fN(k.pel)} pelaksanaan kegiatan dan ${fN(k.hd)} kehadiran.` + (last ? ` Data bulanan BTT terakhir terisi untuk ${monthLabel(last)}.` : '') });
+      lain.push({ k: 'info', t: `BTT mencatat ${fN(k.u)} partisipan unik (cakupan ${(c.btt.cakupan || '').split('·')[0].replace(/\s*\(.*\)\s*$/, '').trim() || 'rekap'}), ${fP(k.u ? k.p / k.u : null)} perempuan, dari ${fN(k.pel)} pelaksanaan kegiatan dan ${fN(k.hd)} kehadiran.` + (last ? ` Data bulanan BTT terakhir terisi untuk ${monthLabel(last)}.` : '') });
     }
     if (c.mttRows && c.mttRows.length) {
       const R = c.mttRows.filter(r => !r.det && r.st !== 'na'), ok = R.filter(r => r.st === 'ok'), below = R.filter(r => r.st !== 'ok').sort((a, b) => (a.p || 0) - (b.p || 0));
-      H.push({ k: ok.length === R.length ? 'ok' : 'warn', t: `MTT s.d. ${BLN[c.mttMonth - 1]} ${c.mttYear}: ${ok.length} dari ${R.length} indikator output tercapai (capaian > 90% target).` + (below.length ? ` Capaian terendah: ${below[0].kode} (${fP(below[0].p)}).` : '') });
+      lain.push({ k: ok.length === R.length ? 'ok' : 'warn', t: `MTT s.d. ${BLN[c.mttMonth - 1]} ${c.mttYear}: ${ok.length} dari ${R.length} indikator output tercapai (capaian > 90% target).` + (below.length ? ` Capaian terendah: ${below[0].kode} (${fP(below[0].p)}).` : '') });
     }
-    return H;
+    if (lain.length) S.push({ judul: 'Catatan lain', items: lain });
+    return S;
   }
 
   function hlKab(c, kab) {
@@ -184,7 +241,7 @@
       const ps = pesSummary(a); if (ps) H.push({ k: 'info', t: ps });
       const acts = c.acts ? c.acts.filter(x => x.kab === kab) : null;
       if (acts) {
-        narrSort(acts).slice(0, 2).forEach(x => H.push(narr(x, false)));
+        menonjol(acts, 2).forEach(x => H.push(Object.assign({}, x, { b: x.b.replace(/^[^·]+·\s*/, '') })));
         const fu = acts.filter(x => stKey(x.status) === 'tertunda' || isLate(x, c.today));
         if (fu.length) H.push({ k: 'warn', t: `Perlu tindak lanjut: ${listText(fu.map(x => `${x.nama} (${isLate(x, c.today) ? 'lewat jadwal' : ST_LABEL[stKey(x.status)].toLowerCase()})`), 2)}.` });
       } else if (a.tl) H.push({ k: 'warn', t: `${fN(a.tl)} kegiatan tertunda atau lewat jadwal` + (c.perhatian && c.perhatian.length ? `: ${listText(c.perhatian.filter(x => x.kab === kab).map(x => `${x.nama} (${x.alasan.toLowerCase()})`), 2)}.` : '.') });
@@ -205,12 +262,51 @@
     return JSON.parse(new TextDecoder().decode(await C.decrypt({ name: 'AES-GCM', iv: b(env.i) }, key, b(env.c))));
   }
 
+  /* ---------------- BTT: tampilan sesuai filter (periode, wilayah, jenis kelamin, kelompok usia) ---------------- */
+  const WIL = ['Mimika', 'Nabire', 'Asmat', 'Lainnya'];
+  function bttPeriods(B) {
+    if (B.kubus) return B.kubus.periode.map(([k, l]) => [k, k[0] === 'm' ? monthLabel(l) : l]);
+    return [['dash', `${(B.cakupan || 'Cakupan Dashboard').split('·')[0].trim()} (Dashboard)`], ...(B.bulanan || []).filter(r => r.pel || r.hd || r.t).map(r => ['m' + r.m, monthLabel(r.m)])];
+  }
+  function bttView(B, f) {
+    const K = B.kubus, z = () => ({ u: 0, l: 0, p: 0, x: 0, hd: 0 });
+    const add = (o, r) => { o.u += r[3]; o.hd += r[4]; o[r[1] === 'L' ? 'l' : r[1] === 'P' ? 'p' : 'x'] += r[3]; return o; };
+    if (K) {
+      const rows = K.p[f.per] || [], ok = (r, skip) => (skip === 'w' || f.wil === 'Semua' || r[0] === f.wil) && (skip === 'j' || f.jk === 'Semua' || r[1] === f.jk) && (skip === 'u' || f.usia === 'Semua' || r[2] === f.usia);
+      const tot = rows.filter(r => ok(r)).reduce(add, z());
+      const perWil = WIL.map(w => [w, rows.filter(r => ok(r, 'w') && r[0] === w).reduce(add, z())]).filter(([w, o]) => w !== 'Lainnya' || o.u);
+      const usia = (K.usia || []).map(g => [g, rows.filter(r => ok(r, 'u') && r[2] === g).reduce(add, z())]);
+      const kk = (K.k[f.per] || []).filter(r => f.wil === 'Semua' || r[0] === f.wil);
+      const keg = kk.reduce((o, r) => { r.slice(1).forEach((v, i) => { o[i] = (o[i] || 0) + v; }); return o; }, []);
+      const ms = K.periode.filter(([k]) => k[0] === 'm').map(([, l]) => l).sort(), seq = [];
+      if (ms.length) { let [y, m] = ms[0].split('-').map(Number); const [y1, m1] = ms[ms.length - 1].split('-').map(Number); while (y < y1 || (y === y1 && m <= m1)) { seq.push(`${y}-${pad(m)}`); m++; if (m > 12) { m = 1; y++; } } }
+      const trend = seq.map(l => ['m' + l, l]).map(([k, l]) => { const R = (K.p[k] || []).filter(r => ok(r)), P = (K.k[k] || []).filter(r => f.wil === 'Semua' || r[0] === f.wil);
+        return { m: l, u: R.reduce((s, r) => s + r[3], 0), hd: R.reduce((s, r) => s + r[4], 0), pel: P.reduce((s, r) => s + r[1], 0) }; });
+      return { mode: 'kubus', ...tot, pel: keg[0] || 0, hdKeg: keg[1] || 0, outcome: [keg[2] || 0, keg[3] || 0, keg[4] || 0, keg[5] || 0], recap: kk, perWil, usia, trend, jkOk: true, usiaOk: true };
+    }
+    /* sebelum sinkron Database: tab Dashboard (cakupan filter sheet) + tren bulanan per file BTT */
+    const trend = (B.bulanan || []).map(r => ({ m: r.m, u: f.wil === 'Semua' ? r.t : (r[f.wil] || 0), hd: f.wil === 'Semua' ? r.hd : null, pel: f.wil === 'Semua' ? r.pel : null }));
+    if (f.per === 'dash') {
+      const pf = B.per_file || {}, K0 = B.kpi || {};
+      const one = f.wil === 'Semua' ? { u: K0.u, l: K0.l, p: K0.p, x: (K0.u || 0) - (K0.l || 0) - (K0.p || 0), hd: K0.hd, pel: K0.pel } : (() => { const q = pf[f.wil] || {}; return { u: q.u || 0, l: q.l || 0, p: q.p || 0, x: q.x || 0, hd: q.hd || 0, pel: q.pel || 0 }; })();
+      const oc = (B.outcome || []).filter(r => /\d/.test(r.o)).map(r => f.wil === 'Semua' ? r.pel : (r[f.wil] || 0));
+      const ob = (B.outcome || []).find(r => /belum/i.test(r.o));
+      return { mode: 'dash', ...one, outcome: [...oc, ob ? (f.wil === 'Semua' ? ob.pel : (ob[f.wil] || 0)) : 0],
+        recap: KAB.filter(k => (f.wil === 'Semua' || k === f.wil) && B.recap && B.recap[k]).map(k => { const r = B.recap[k]; return [k, r.kol, r.t, 0, 0, 0, 0, r.male, r.female, r.boys, r.girls, r.tk]; }),
+        perWil: KAB.map(k => [k, { u: (pf[k] || {}).u || 0, l: (pf[k] || {}).l || 0, p: (pf[k] || {}).p || 0, x: (pf[k] || {}).x || 0, hd: (pf[k] || {}).hd || 0 }]),
+        usia: f.wil === 'Semua' ? (B.usia || []).map(r => [r.g, { u: r.t, l: r.l, p: r.p, x: r.x, hd: 0 }]) : [], trend, jkOk: false, usiaOk: false };
+    }
+    const r = (B.bulanan || []).find(x => 'm' + x.m === f.per) || {};
+    return { mode: 'bulan', u: f.wil === 'Semua' ? r.t || 0 : r[f.wil] || 0, l: null, p: null, x: null, hd: f.wil === 'Semua' ? r.hd : null, pel: f.wil === 'Semua' ? r.pel : null,
+      outcome: null, recap: [], perWil: KAB.map(k => [k, { u: r[k] || 0, l: 0, p: 0, x: 0, hd: 0 }]), usia: [], trend, jkOk: false, usiaOk: false };
+  }
+
   /* folder dokumentasi minggu terpilih: baris dengan tanggal di minggu itu; baris tanpa tanggal dipakai untuk minggu terbaru */
   function dokFor(list, mon, latestMon) {
     const L = list || [];
     return L.find(d => d.minggu === mon) || (mon === latestMon ? L.find(d => !d.minggu) : null) || null;
   }
 
-  g.WU = { decrypt, pesText, firstSentence, narrSort, dokFor, KAB, BLN, BLN3, pad, iso, parse, addDays, monday, isoWeek, fmtRange, weekInfo, stKey, ST_LABEL, isLate, endOf, weeksOf, defaultWeek, inWeek,
+  g.WU = { decrypt, pesText, firstSentence, narrSort, dokFor, hasilPoints, isCountLine, mainPoints, tema, menonjol, temaRingkas, bttPeriods, bttView, WIL, KAB, BLN, BLN3, pad, iso, parse, addDays, monday, isoWeek, fmtRange, weekInfo, stKey, ST_LABEL, isLate, endOf, weeksOf, defaultWeek, inWeek,
     aggregate, aggFromSnapshot, sumAgg, topCount, listText, bttLastMonth, bttWindow, mttMonth, mttRows, MTT_ST, hlProgram, hlKab, fN, fP, monthLabel };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

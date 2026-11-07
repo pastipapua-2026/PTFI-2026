@@ -36,7 +36,7 @@ test('highlight otomatis: angka dari data, kabupaten tanpa kegiatan diberi keter
   const acts = [A('MIM-1', 'Mimika', '2026-11-03', 'Selesai', {foto: true, dh: true}), A('ASM-1', 'Asmat', '2026-11-04', 'Pending')];
   const byKab = {}; WU.KAB.forEach(k => { byKab[k] = WU.aggregate(acts.filter(a => a.kab === k), '2026-11-07'); });
   const c = {acts, byKab, agg: WU.sumAgg(WU.KAB.map(k => byKab[k])), today: '2026-11-07', btt: null, mttRows: [], nextByKab: {}};
-  const p = WU.hlProgram(c).map(h => h.t).join(' | ');
+  const p = WU.hlProgram(c).flatMap(x => x.items).map(h => h.t).join(' | ');
   assert.match(p, /1 dari 2 kegiatan terjadwal minggu ini sudah selesai \(50%\)/);
   assert.match(p, /Perlu tindak lanjut: 1 kegiatan tertunda atau lewat jadwal \(Asmat 1\)/);
   assert.match(WU.hlKab(c, 'Nabire')[0].t, /Belum ada kegiatan terjadwal/);
@@ -44,19 +44,40 @@ test('highlight otomatis: angka dari data, kabupaten tanpa kegiatan diberi keter
   assert.match(WU.hlKab(c, 'Asmat').map(h => h.t).join(' '), /Perlu tindak lanjut: Kegiatan ASM-1 \(lewat jadwal\)/);
 });
 
-test('narasi highlight memakai Hasil Kegiatan dan jumlah peserta terpilah, tanpa mengulang kalimat peserta', () => {
-  const acts = [A('ASM-1', 'Asmat', '2026-11-02', 'Selesai', {lokasi: 'Warse', hasil: 'Edukasi dengan metode KAP. Peserta antusias.', peserta: {l: 41, p: 3, t: 44, src: 'kolom'}}),
-    A('MIM-4', 'Mimika', '2026-11-06', 'Selesai', {lokasi: 'Omawita', hasil: 'Laki-laki: 3 orang, Perempuan: 14 orang. Materi gizi kehamilan.', peserta: {l: 3, p: 14, t: 17, src: 'teks'}}),
-    A('NAB-1', 'Nabire', '2026-11-05', 'Rencana')];
+test('highlight: ringkasan semua kegiatan, per jenis kegiatan, dan hasil menonjol dari narasi', () => {
+  const acts = [A('ASM-2', 'Asmat', '2026-11-06', 'Selesai', {nama: 'Temu Siklus - Rembuk Posyandu Siklus Hidup', lokasi: 'Warse',
+      hasil: '- Dari 4 Kampung, 3 kampung telah siap mengimplementasikan Posyandu Siklus Hidup\n- Puskesmas berkomitmen akan memulai Posyandu Siklus Hidup mulai bulan Januari 2027'}),
+    A('MIM-4', 'Mimika', '2026-11-03', 'Selesai', {nama: 'Monitoring posyandu Atuka', lokasi: 'Atuka', hasil: 'Bayi laki-laki: 14\nTotal hadir: 81 orang\nadanya PMT penyuluhan berbahan pangan lokal',
+      peserta: {l: 27, p: 54, t: 81, src: 'teks'}}),
+    A('NAB-2', 'Nabire', '2026-11-06', 'Selesai', {nama: 'Monitoring posyandu oleo', hasil: '20 baduta yang hadir\n(Laki-laki : 10  Perempuan : 10)', peserta: {l: 10, p: 10, t: 20, src: 'teks', grp: {baduta: 20}}})];
   const byKab = {}; WU.KAB.forEach(k => { byKab[k] = WU.aggregate(acts.filter(a => a.kab === k), '2026-11-07'); });
-  const agg = WU.sumAgg(WU.KAB.map(k => byKab[k]));
-  assert.equal(agg.pesT, 61); assert.equal(agg.pesL, 44); assert.equal(agg.pesP, 17);
-  const H = WU.hlProgram({acts, byKab, agg, today: '2026-11-07', btt: null, mttRows: [], nextByKab: {}});
-  const txt = H.map(h => (h.b ? h.b + ' ' : '') + h.t);
-  assert.ok(txt.some(t => /^Peserta minggu ini: 61 kehadiran \(laki-laki 44, perempuan 17\)/.test(t)));
-  assert.equal(txt.find(t => t.startsWith('Asmat ·')), 'Asmat · Kegiatan ASM-1 (Warse, 2 Nov) 44 peserta (laki-laki 41, perempuan 3). Edukasi dengan metode KAP.');
-  assert.equal(txt.find(t => t.startsWith('Mimika ·')), 'Mimika · Kegiatan MIM-4 (Omawita, 6 Nov) 17 peserta (laki-laki 3, perempuan 14). Materi gizi kehamilan.');
-  assert.ok(!txt.some(t => /dokumentasi lengkap/i.test(t)));
+  const S = WU.hlProgram({acts, byKab, agg: WU.sumAgg(WU.KAB.map(k => byKab[k])), today: '2026-11-07', btt: null, mttRows: [], nextByKab: {}});
+  const flat = sec => S.find(x => x.judul === sec).items.map(h => (h.b ? h.b + ' ' : '') + h.t);
+  assert.match(S[0].items[1].t, /101 kehadiran \(laki-laki 37, perempuan 64\)/);
+  assert.ok(flat('Per jenis kegiatan').some(t => /^Posyandu: 2 kegiatan \(2 selesai\) di Mimika, Nabire · 101 peserta .*termasuk 20 baduta/.test(t)));
+  assert.ok(flat('Per jenis kegiatan').some(t => /^Koordinasi dan advokasi: 1 kegiatan/.test(t)));
+  assert.equal(flat('Hasil yang menonjol')[0], 'Asmat · Temu Siklus - Rembuk Posyandu Siklus Hidup: Puskesmas berkomitmen akan memulai Posyandu Siklus Hidup mulai bulan Januari 2027');
+});
+
+test('poin Hasil: baris yang hanya berisi angka kehadiran tidak diulang di Hasil utama', () => {
+  const h = '1. Sasaran yang Hadir\nBayi laki-laki: 14\nIbu hamil: 7\nUsia dewasa: perempuan 2, laki-laki 1\nTotal hadir: 81 orang\n2. adanya AoC yang memberikan Penyuluhan terkait ISPA';
+  assert.deepEqual(JSON.parse(JSON.stringify(WU.mainPoints(h))), ['adanya AoC yang memberikan Penyuluhan terkait ISPA']);
+  assert.deepEqual(JSON.parse(JSON.stringify(WU.hasilPoints('8 orang baduta yang hadir\n(Laki-laki : 5 Perempuan : 3)'))), ['8 orang baduta yang hadir (Laki-laki : 5 Perempuan : 3)']);
+  for (const x of ['29 peserta hadir (L:1, P:28)', 'Baduta :13 orang L:10 P:3 Balita : 6 L:3 P:3', 'Peserta untuk Pria : 58 orang Wanita: 22 orang;']) assert.ok(WU.isCountLine(x), x);
+  for (const x of ['1 anak 1T BB (Berat badan) naik sesuai target mingguan', 'Output 1.1.1, 1.1.3, dan 1.2.1 sudah direkap']) assert.ok(!WU.isCountLine(x), x);
+});
+
+test('filter BTT: periode, wilayah, jenis kelamin, kelompok usia', () => {
+  const B = {kubus: {usia: ['Dewasa', '12-17.99 yo'], periode: [['all', 'Semua periode'], ['y2026', 'Tahun 2026'], ['m2026-08', '2026-08'], ['m2026-10', '2026-10']],
+    p: {y2026: [['Mimika', 'L', 'Dewasa', 2, 5], ['Mimika', 'P', 'Dewasa', 3, 4], ['Nabire', 'P', '12-17.99 yo', 4, 4]], 'm2026-08': [['Mimika', 'P', 'Dewasa', 1, 1]], 'm2026-10': [['Nabire', 'P', '12-17.99 yo', 2, 2]]},
+    k: {y2026: [['Mimika', 2, 9, 1, 1, 0, 0, 1, 2, 0, 0, 0], ['Nabire', 1, 4, 0, 0, 1, 0, 0, 0, 1, 2, 0]], 'm2026-08': [['Mimika', 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0]]}}};
+  const v = (f) => WU.bttView(B, Object.assign({per: 'y2026', wil: 'Semua', jk: 'Semua', usia: 'Semua'}, f));
+  assert.deepEqual([v({}).u, v({}).l, v({}).p, v({}).pel], [9, 2, 7, 3]);
+  assert.deepEqual([v({wil: 'Mimika'}).u, v({wil: 'Mimika'}).pel], [5, 2]);
+  assert.equal(v({wil: 'Mimika', jk: 'P'}).u, 3);
+  assert.equal(v({usia: '12-17.99 yo'}).u, 4);
+  assert.deepEqual(JSON.parse(JSON.stringify(v({}).trend.map(r => r.m))), ['2026-08', '2026-09', '2026-10']);
+  assert.equal(v({per: 'm2026-08', wil: 'Mimika'}).u, 1);
 });
 
 test('folder dokumentasi per minggu; baris tanpa tanggal hanya untuk minggu terbaru', () => {

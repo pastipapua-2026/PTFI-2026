@@ -72,6 +72,10 @@ Buka situs, lalu masuk dengan kode akses baru. Sebelum langkah ini selesai, situ
 
 ## 6. Siapkan Google Sheet Weekly Update (sekali)
 
+**Cara laporan membaca Weekly Update.** File diunduh sebagai .xlsx (ekspor Google Sheets), jadi tanggal yang diketik sebagai teks seperti "14/11/2026" tetap terbaca. Pastikan pengaturan berbagi file **tidak** mematikan "Viewer dapat mengunduh".
+
+**Jumlah peserta disaring dari Hasil Kegiatan.** Tim cukup menulis seperti biasa, misalnya "29 peserta hadir (L:1, P:28)", "Baduta :13 orang L:10 P:3", "Pria : 58 orang Wanita: 22 orang", atau daftar "Bayi laki-laki: 14 … Total hadir: 81 orang". Ibu hamil, ibu nifas, dan ibu menyusui dihitung perempuan. Bila total tidak sama dengan laki-laki + perempuan, laporan memberi tanda "cek angka".
+
 **a. Kolom jumlah peserta.** Di akhir tab **Mimika**, **Nabire**, dan **Asmat** (setelah kolom terakhir yang ada), tambahkan tiga kolom dengan judul di baris header yang sama dengan "Nama Kegiatan":
 
 | Peserta Laki-laki | Peserta Perempuan | Total Peserta |
@@ -92,7 +96,15 @@ Buka situs, lalu masuk dengan kode akses baru. Sebelum langkah ini selesai, situ
 - Tempel link sebagai **teks biasa**, bukan chip/kartu Drive.
 - Folder perlu dibagikan **"Siapa saja yang memiliki link · Viewer"** agar isinya tampil untuk PTFI. Pastikan foto di folder sudah sesuai persetujuan dokumentasi dan kebijakan perlindungan anak.
 
-## 7. Logo Wahana Visi Indonesia
+## 7. BTT Rekap: filter bulan, wilayah, jenis kelamin, dan usia
+
+Filter di bagian Partisipan dihitung dari tab **Database** BTT Rekap (tata letak template: judul kolom di baris 14, zona Nabire/Mimika/Asmat). Yang dipublikasikan hanya jumlah per periode × wilayah × jenis kelamin × kelompok usia; ID partisipan tidak disimpan.
+
+- Jangan mengubah urutan atau judul kolom di baris 14 tab Database.
+- Bila tab Database belum terbaca, laporan tetap jalan memakai tab Dashboard; filter jenis kelamin dan usia dinonaktifkan dan alasannya tampil di Catatan data BTT.
+- Hasil hitung "Tahun 2026" dicocokkan otomatis dengan kartu Partisipan unik di tab Dashboard. Bila berbeda, Catatan data BTT menyebutkannya.
+
+## 8. Logo Wahana Visi Indonesia
 
 Unggah file logo resmi ke folder `assets` dengan nama persis **`logo-wvi.png`** (PNG latar transparan, tinggi minimal 120 px). Logo tampil di halaman kode akses, header, sampul, dan penutup. Selama file belum ada, posisi logo menampilkan tulisan "Wahana Visi Indonesia".
 
