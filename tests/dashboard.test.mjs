@@ -40,7 +40,30 @@ test('highlight otomatis: angka dari data, kabupaten tanpa kegiatan diberi keter
   assert.match(p, /1 dari 2 kegiatan terjadwal minggu ini sudah selesai \(50%\)/);
   assert.match(p, /Perlu tindak lanjut: 1 kegiatan tertunda atau lewat jadwal \(Asmat 1\)/);
   assert.match(WU.hlKab(c, 'Nabire')[0].t, /Belum ada kegiatan terjadwal/);
-  assert.match(WU.hlKab(c, 'Mimika').map(h => h.t).join(' '), /Selesai: Kegiatan MIM-1 \(Atuka\)/);
+  assert.match(WU.hlKab(c, 'Mimika')[0].t, /^1 kegiatan minggu ini: 1 selesai\.$/);
+  assert.match(WU.hlKab(c, 'Asmat').map(h => h.t).join(' '), /Perlu tindak lanjut: Kegiatan ASM-1 \(lewat jadwal\)/);
+});
+
+test('narasi highlight memakai Hasil Kegiatan dan jumlah peserta terpilah, tanpa mengulang kalimat peserta', () => {
+  const acts = [A('ASM-1', 'Asmat', '2026-11-02', 'Selesai', {lokasi: 'Warse', hasil: 'Edukasi dengan metode KAP. Peserta antusias.', peserta: {l: 41, p: 3, t: 44, src: 'kolom'}}),
+    A('MIM-4', 'Mimika', '2026-11-06', 'Selesai', {lokasi: 'Omawita', hasil: 'Laki-laki: 3 orang, Perempuan: 14 orang. Materi gizi kehamilan.', peserta: {l: 3, p: 14, t: 17, src: 'teks'}}),
+    A('NAB-1', 'Nabire', '2026-11-05', 'Rencana')];
+  const byKab = {}; WU.KAB.forEach(k => { byKab[k] = WU.aggregate(acts.filter(a => a.kab === k), '2026-11-07'); });
+  const agg = WU.sumAgg(WU.KAB.map(k => byKab[k]));
+  assert.equal(agg.pesT, 61); assert.equal(agg.pesL, 44); assert.equal(agg.pesP, 17);
+  const H = WU.hlProgram({acts, byKab, agg, today: '2026-11-07', btt: null, mttRows: [], nextByKab: {}});
+  const txt = H.map(h => (h.b ? h.b + ' ' : '') + h.t);
+  assert.ok(txt.some(t => /^Peserta minggu ini: 61 kehadiran \(laki-laki 44, perempuan 17\)/.test(t)));
+  assert.equal(txt.find(t => t.startsWith('Asmat ·')), 'Asmat · Kegiatan ASM-1 (Warse, 2 Nov) 44 peserta (laki-laki 41, perempuan 3). Edukasi dengan metode KAP.');
+  assert.equal(txt.find(t => t.startsWith('Mimika ·')), 'Mimika · Kegiatan MIM-4 (Omawita, 6 Nov) 17 peserta (laki-laki 3, perempuan 14). Materi gizi kehamilan.');
+  assert.ok(!txt.some(t => /dokumentasi lengkap/i.test(t)));
+});
+
+test('folder dokumentasi per minggu; baris tanpa tanggal hanya untuk minggu terbaru', () => {
+  const L = [{minggu: '2026-11-02', id: 'A', judul: 'Week 1 November'}, {minggu: '', id: 'B', judul: 'terbaru'}];
+  assert.equal(WU.dokFor(L, '2026-11-02', '2026-11-09').id, 'A');
+  assert.equal(WU.dokFor(L, '2026-11-09', '2026-11-09').id, 'B');
+  assert.equal(WU.dokFor(L, '2026-10-26', '2026-11-09'), null);
 });
 
 test('MTT: status mengikuti aturan > 90%, baris rincian tidak diberi persen buatan', () => {

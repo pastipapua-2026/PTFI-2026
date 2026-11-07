@@ -10,12 +10,18 @@
 <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
-<link rel="stylesheet" href="./assets/dashboard.css?v=wu1">
-<link rel="stylesheet" href="./assets/weekly.css?v=wu1">
+<style>/* cadangan: tetap rapi bila folder assets belum ter-upload */
+body.locked .top,body.locked main,body.locked .pager,.pbar-fs{display:none}
+#gate{font-family:Inter,system-ui,sans-serif}
+.org img{max-height:40px;width:auto}.org .org-txt{display:none}
+</style>
+<link rel="stylesheet" href="./assets/dashboard.css?v=wu3">
+<link rel="stylesheet" href="./assets/weekly.css?v=wu3">
 </head>
 <body class="locked">
 <div id="gate" role="dialog" aria-modal="true" aria-labelledby="gTitle">
   <form class="gate-box panel" id="gForm" autocomplete="off">
+    <span class="org g-org"><img src="./assets/logo-wvi.png" alt="Wahana Visi Indonesia" onerror="this.parentNode.classList.add('nologo')"><span class="org-txt">Wahana Visi Indonesia</span></span>
     <div class="brand"><span class="hb-badge" aria-hidden="true">P</span><div class="ttl"><h1 id="gTitle">PASTI-Papua <span>· Weekly Update PTFI</span></h1><p>Mimika · Nabire · Asmat</p></div></div>
     <p class="g-sub">Masukkan kode akses untuk membuka laporan mingguan.</p>
     <label class="g-lab" for="gCode">Kode akses</label>
@@ -31,6 +37,7 @@
     <div class="brand">
       <span class="hb-badge" aria-hidden="true">P</span>
       <div class="ttl"><h1>PASTI-Papua <span>· Weekly Update PTFI</span></h1><p id="asof">Mimika · Nabire · Asmat</p></div>
+      <span class="org h-org"><img src="./assets/logo-wvi.png" alt="Wahana Visi Indonesia" onerror="this.parentNode.classList.add('nologo')"><span class="org-txt">Wahana Visi Indonesia</span></span>
     </div>
     <div class="ctrl">
       <div class="fxs"><label for="per">Minggu laporan</label><select id="per" class="sel"></select></div>
@@ -54,7 +61,22 @@
   <button class="ibtn" id="fsExit" aria-label="Keluar dari presentasi">Keluar</button>
 </div>
 
-<script src="./assets/logic.js?v=wu1"></script>
-<script src="./assets/app.js?v=wu1"></script>
+<script src="./assets/logic.js?v=wu3"></script>
+<script src="./assets/app.js?v=wu3"></script>
+<script>
+/* Pemeriksaan upload: bila berkas di folder assets tidak ada, tampilkan pesan yang jelas di halaman kode akses. */
+addEventListener('load', function () {
+  var miss = [], g = document.getElementById('gate'), b = document.querySelector('.hb-badge');
+  if (!window.WU) miss.push('assets/logic.js');
+  if (typeof unlock !== 'function') miss.push('assets/app.js');
+  if (g && getComputedStyle(g).position !== 'fixed') miss.push('assets/weekly.css');
+  if (b && getComputedStyle(b).display !== 'flex') miss.push('assets/dashboard.css (versi baru)');
+  if (!miss.length) return;
+  var e = document.getElementById('gErr');
+  e.style.cssText = 'color:#bd3a0b;font-weight:700;margin-top:10px;max-width:520px';
+  e.textContent = 'Laporan belum lengkap ter-upload. Berkas berikut tidak ditemukan di repository: ' + miss.join(', ') + '. Upload ulang folder assets (lihat PANDUAN_SETUP.md, langkah 2).';
+  document.getElementById('gBtn').disabled = true;
+});
+</script>
 </body>
 </html>

@@ -15,8 +15,11 @@ const dShort = s => { if (!s) return '–'; const d = WU.parse(s); return `${d.g
 const TODAY = iso(new Date());
 
 let D = null;
-const ST = { sec: 'cover', week: null, kab: 'Semua', bttM: 'u', anim: null, mob: innerWidth < 720 };
-const SECTIONS = [{ id: 'cover', t: 'Sampul' }, { id: 'ringkasan', t: 'Ringkasan' }, { id: 'kegiatan', t: 'Kegiatan' }, { id: 'partisipan', t: 'Partisipan' }, { id: 'indikator', t: 'Capaian indikator' }, { id: 'penutup', t: 'Penutup' }];
+const ST = { sec: 'cover', week: null, kab: 'Semua', bttM: 'u', dokV: 'grid', anim: null, mob: innerWidth < 720 };
+const SECTIONS = [{ id: 'cover', t: 'Sampul' }, { id: 'ringkasan', t: 'Ringkasan' }, { id: 'kegiatan', t: 'Kegiatan' }, { id: 'dokumentasi', t: 'Dokumentasi' }, { id: 'partisipan', t: 'Partisipan' }, { id: 'indikator', t: 'Capaian indikator' }, { id: 'penutup', t: 'Penutup' }];
+/* logo Wahana Visi Indonesia: berkas assets/logo-wvi.png; bila belum ada, tampil nama organisasi */
+let LOGO_OK = null; /* dicek sekali saat halaman dibuka */
+const ORG = cls => `<span class="org ${cls || ''}${LOGO_OK ? '' : ' nologo'}">${LOGO_OK ? '<img src="./assets/logo-wvi.png" alt="Wahana Visi Indonesia">' : ''}<span class="org-txt">Wahana Visi Indonesia</span></span>`;
 const NUM = id => (id === 'cover' || id === 'penutup') ? 0 : SECTIONS.findIndex(s => s.id === id);
 
 /* ---------------- akses ---------------- */
@@ -72,12 +75,16 @@ function ctx() {
 }
 
 /* ---------------- komponen ---------------- */
-const hlList = H => `<ul class="hl">${H.map(h => `<li class="${h.k}">${esc(h.t)}</li>`).join('')}</ul>`;
+const hlList = H => `<ul class="hl">${H.map(h => `<li class="${h.k}">${h.b ? `<b>${esc(h.b)}</b> ` : ''}${esc(h.t)}</li>`).join('')}</ul>`;
 const kpi = (lab, val, c, lead = false, extra = '') => `<div class="panel kpi${lead ? ' lead' : ''}"><div class="lab">${lab}</div><div class="val num">${val}</div>${extra}<div class="ctx">${c}</div></div>`;
 function sexBlock(l, p, x) {
   const t = (l || 0) + (p || 0); if (!t) return '<div class="nodata">Pemilahan jenis kelamin belum ada</div>';
   return `<div class="sexbar"><span class="m" style="width:${l / t * 100}%"></span><span class="f" style="width:${p / t * 100}%"></span></div>
     <div class="split"><span><span class="sw" style="background:var(--male)"></span>L <b>${fN(l)}</b></span><span><span class="sw" style="background:var(--female)"></span>P <b>${fN(p)}</b></span>${x ? `<span>Belum diketahui <b>${fN(x)}</b></span>` : ''}</div>`;
+}
+function pesKpi(g, live) {
+  if (!live) return kpi('Peserta hadir', '–', 'tampil setelah sinkron aktif');
+  return kpi('Peserta hadir', fN(g.pesT), `kehadiran di ${fN(g.pesN)} kegiatan${g.pesTanpaJK ? ` · ${fN(g.pesTanpaJK)} belum dipilah` : ''}`, false, g.pesT ? sexBlock(g.pesL, g.pesP) : '');
 }
 const pbar = p => `<div class="pbar"><div class="t"><span style="width:${Math.min(100, (p || 0) * 100)}%"></span></div><b>${fP(p)}</b></div>`;
 function stBadge(a) {
@@ -96,7 +103,7 @@ function weekBar(withKab) {
 function snapNotice(c) {
   if (c.live) return '';
   const s = SNAP();
-  return `<div class="notice"><b>Snapshot ${esc(dShort(s && s.dibaca))} 2026.</b> Angka kegiatan diambil dari ${esc(s ? s.sumber : 'tab Dashboard')}. Daftar kegiatan per baris dan highlight lengkap tampil otomatis setelah sinkron Google Sheets aktif.</div>`;
+  return `<div class="notice"><b>Snapshot ${esc(dShort(s && s.dibaca))} 2026.</b> Angka kegiatan diambil dari ${esc(s ? s.sumber : 'tab Dashboard')}. Daftar kegiatan, hasil kegiatan, dan jumlah peserta per kegiatan tampil otomatis setelah sinkron Google Sheets aktif.</div>`;
 }
 
 /* ---------------- grafik SVG ---------------- */
@@ -136,13 +143,13 @@ function lineChart(cats, lines, o = {}) {
 /* ---------------- halaman ---------------- */
 function renderCover() {
   const W = weekInfo(ST.week);
-  return `<div class="cover"><div><div class="k">Weekly Update · PT Freeport Indonesia</div></div>
+  return `<div class="cover"><div class="cv-top"><div class="k">Weekly Update · PT Freeport Indonesia</div>${ORG('cv-org')}</div>
     <div><h2>PASTI&#8209;Papua</h2><p class="acr">Partnership to Accelerate Stunting Reduction in Indonesia – Papua</p></div>
     <div class="per"><div><div class="lab">Minggu laporan</div><div class="m">${esc(W.label)}</div><div class="cv-r">${esc(W.range)} · W${W.w}</div></div><div class="loc">Mimika, Nabire, dan Asmat</div></div></div>`;
 }
 function renderPenutup() {
   const W = weekInfo(ST.week);
-  return `<div class="cover closing"><div><div class="k">Penutup</div></div>
+  return `<div class="cover closing"><div class="cv-top"><div class="k">Penutup</div>${ORG('cv-org')}</div>
     <div><h2>Terima kasih</h2><p class="acr">Sesi tanya jawab</p></div>
     <div class="per"><div><div class="lab">PASTI-Papua · Weekly Update</div><div class="m sm">${esc(W.label)}</div></div><div class="loc">Mimika, Nabire, dan Asmat</div></div></div>`;
 }
@@ -154,9 +161,9 @@ function renderRingkasan() {
   const kp = `<div class="kpis k4">
     ${kpi('Kegiatan minggu ini', fN(a.total), KAB.map(x => `${x} <b>${fN(c.byKab[x].total)}</b>`).join(' · '), true)}
     ${kpi('Kegiatan selesai', `${fN(a.selesai)} <small>/ ${fN(a.aktif)}</small>`, `<b>${fP(a.pct)}</b> dari kegiatan aktif${a.tl ? ` · <b>${fN(a.tl)}</b> perlu tindak lanjut` : ''}`)}
-    ${kpi('Partisipan unik (BTT)', fN(k.u), esc((D.btt.cakupan || '').split('·')[0].trim()), false, sexBlock(k.l, k.p))}
-    ${kpi('Indikator MTT tercapai', `${fN(ok.length)} <small>/ ${fN(R.length)}</small>`, `s.d. ${BLN[c.mttMonth - 1]} ${c.mttYear} · capaian &gt; 90% target`)}</div>`;
-  const prog = `<div class="panel"><div class="panel-h"><h3>Highlight seluruh wilayah program</h3><span class="meta">disusun otomatis dari data minggu ini</span></div><div class="panel-b">${hlList(hlProgram(c))}</div></div>`;
+    ${pesKpi(a, c.live)}
+    ${kpi('Partisipan unik (BTT)', fN(k.u), esc((D.btt.cakupan || '').split('·')[0].trim()), false, sexBlock(k.l, k.p))}</div>`;
+  const prog = `<div class="panel"><div class="panel-h"><h3>Highlight seluruh wilayah program</h3><span class="meta">disusun otomatis dari hasil kegiatan dan jumlah peserta</span></div><div class="panel-b">${hlList(hlProgram(Object.assign({ nNarr: 4 }, c)))}</div></div>`;
   const kabs = `<div class="row r-3">${KAB.map(x => {
     const g = c.byKab[x];
     return `<div class="panel kab-card"><div class="panel-h"><h3>${x}</h3><span class="meta">${KAMPUNG[x]} kampung dampingan</span></div><div class="panel-b">
@@ -165,40 +172,50 @@ function renderRingkasan() {
   }).join('')}</div>`;
   const rules = ['Kegiatan masuk ke minggu laporan berdasarkan Tanggal Mulai di Weekly Update (minggu Senin–Minggu).',
     '"Selesai" dihitung dari kegiatan aktif (tanpa status Batal). "Lewat jadwal" = tanggal sudah lewat tetapi status belum Selesai.',
-    'Dokumentasi lengkap = link foto dan link daftar hadir sama-sama terisi.',
+    'Narasi kegiatan memakai kalimat pertama kolom Hasil Kegiatan, untuk kegiatan Selesai dengan peserta terbanyak.',
+    'Jumlah peserta diambil dari kolom Peserta Laki-laki, Peserta Perempuan, dan Total Peserta. Bila kolom kosong, angka dibaca dari teks Hasil hanya jika ditulis jelas (mis. "Laki-laki: 4, Perempuan: 2") dan diberi tanda "dari teks". Jumlah peserta adalah kehadiran: satu orang bisa hadir di beberapa kegiatan.',
     'Partisipan unik mengikuti cakupan filter di tab Dashboard BTT Rekap. Indikator MTT tercapai bila capaian lebih dari 90% target (aturan Summary_26).'];
   return head + `<div class="stack-y">${weekBar(false)}${snapNotice(c)}${kp}${prog}${kabs}</div>` + note('Cara highlight disusun', rules.map(esc));
 }
 
+function pesCell(pe) {
+  if (!pe || !pe.t) return '<span class="dash">belum diisi</span>';
+  const jk = [pe.l != null ? `L ${fN(pe.l)}` : '', pe.p != null ? `P ${fN(pe.p)}` : ''].filter(Boolean).join(' · ');
+  return `<div class="pes"><b class="pes-t">${fN(pe.t)}</b>${jk ? `<div class="act-l">${jk}</div>` : '<div class="act-l">belum dipilah</div>'}${pe.src === 'teks' ? '<span class="src-t" title="Dibaca dari teks Hasil Kegiatan; isi kolom peserta untuk angka resmi">dari teks</span>' : ''}</div>`;
+}
 function renderKegiatan() {
   const c = ctx(), a = c.agg;
   const head = `<div class="ph"><div><h2>Kegiatan minggu ini</h2><div class="sub">${esc(c.W.label)} · ${esc(c.W.range)}</div></div>${srcTag('Sumber: Weekly Update · tab Mimika, Nabire, Asmat')}</div>`;
   const kp = `<div class="kpis k4">${kpi('Kegiatan terjadwal', fN(a.total), 'berdasarkan Tanggal Mulai', true)}
-    ${kpi('Selesai', fN(a.selesai), `<b>${fP(a.pct)}</b> dari kegiatan aktif`)}
-    ${kpi('Masih berjalan', fN(a.berjalan), `${fN(a.rencana)} masih rencana · ${fN(a.kosong)} belum diupdate`)}
+    ${kpi('Selesai', fN(a.selesai), `<b>${fP(a.pct)}</b> dari kegiatan aktif · ${fN(a.berjalan)} berjalan`)}
+    ${pesKpi(a, c.live)}
     ${kpi('Perlu tindak lanjut', fN(a.tl), `${fN(a.tertunda)} tertunda · ${fN(a.lewat)} lewat jadwal`)}</div>`;
   const rows = KAB.map(x => { const g = c.byKab[x]; return `<tr><td class="lead"><b>${x}</b></td><td class="r" data-l="Kegiatan">${fN(g.total)}</td><td class="r" data-l="Selesai">${fN(g.selesai)}</td><td class="r" data-l="Berjalan">${fN(g.berjalan)}</td><td class="r" data-l="Tertunda">${fN(g.tertunda)}</td><td class="r" data-l="Lewat jadwal">${fN(g.lewat)}</td><td class="r" data-l="% selesai">${pbar(g.pct)}</td></tr>`; }).join('');
   const prog = `<div class="panel"><div class="panel-h"><h3>Progres per kabupaten</h3><span class="meta">${esc(c.W.range)}</span></div><div class="panel-b tw">
     <table class="stack prog-t"><thead><tr><th>Kabupaten</th><th class="r">Kegiatan</th><th class="r">Selesai</th><th class="r">Berjalan</th><th class="r">Tertunda</th><th class="r">Lewat jadwal</th><th class="r">% selesai</th></tr></thead>
     <tbody>${rows}</tbody><tfoot><tr><td class="lead">Total</td><td class="r" data-l="Kegiatan">${fN(a.total)}</td><td class="r" data-l="Selesai">${fN(a.selesai)}</td><td class="r" data-l="Berjalan">${fN(a.berjalan)}</td><td class="r" data-l="Tertunda">${fN(a.tertunda)}</td><td class="r" data-l="Lewat jadwal">${fN(a.lewat)}</td><td class="r" data-l="% selesai">${pbar(a.pct)}</td></tr></tfoot></table></div></div>`;
-  const dok = `<div class="panel"><div class="panel-h"><h3>Kelengkapan dokumentasi</h3><span class="meta">kegiatan selesai dengan foto dan daftar hadir</span></div><div class="panel-b"><div class="grps">
-    ${KAB.map(x => { const g = c.byKab[x], p = g.selesai ? g.selesaiLengkap / g.selesai : null; return `<div class="grp"><span>${x}</span><div class="t"><span style="width:${(p || 0) * 100}%"></span></div><div class="v">${g.selesai ? `<b>${fN(g.selesaiLengkap)}</b> / ${fN(g.selesai)} selesai` : 'belum ada yang selesai'}</div></div>`; }).join('')}
-    </div></div></div>`;
+  const mxP = Math.max(1, ...KAB.map(x => c.byKab[x].pesT));
+  const pes = `<div class="panel"><div class="panel-h"><h3>Peserta hadir per kabupaten</h3><span class="meta">jumlah kehadiran · laki-laki dan perempuan</span></div><div class="panel-b">
+    ${c.live ? `<div class="grps">${KAB.map(x => { const g = c.byKab[x]; return `<div class="grp kb"><span>${x}<small>${fN(g.pesN)} kegiatan mencatat peserta</small></span><div><div class="t"><span style="width:${g.pesT / mxP * 100}%"></span></div>${g.pesL || g.pesP ? `<div class="sexbar mini"><span class="m" style="width:${g.pesL / (g.pesL + g.pesP) * 100}%"></span><span class="f" style="width:${g.pesP / (g.pesL + g.pesP) * 100}%"></span></div>` : ''}</div><div class="v"><b>${fN(g.pesT)}</b> · L ${fN(g.pesL)} · P ${fN(g.pesP)}</div></div>`; }).join('')}</div>`
+      : '<div class="empty"><b>Jumlah peserta tampil setelah sinkron aktif.</b>Diambil dari kolom peserta atau teks Hasil Kegiatan di Weekly Update.</div>'}</div></div>`;
   let list;
   if (c.live) {
-    const L = c.acts.filter(x => ST.kab === 'Semua' || x.kab === ST.kab).sort((p, q) => KAB.indexOf(p.kab) - KAB.indexOf(q.kab) || p.mulai.localeCompare(q.mulai) || p.id.localeCompare(q.id));
-    const body = L.map(x => `<tr><td class="lead"><span class="code">${esc(x.id)}</span> ${esc(x.nama)}${x.lokasi ? `<div class="act-l">${esc(x.lokasi)}</div>` : ''}</td>
-      <td data-l="Tanggal">${dShort(x.mulai)}${x.selesai && x.selesai !== x.mulai ? ` – ${dShort(x.selesai)}` : ''}</td><td data-l="Kabupaten">${x.kab}</td><td data-l="Output">${esc(x.output || '–')}</td>
-      <td data-l="Status">${stBadge(x)}</td><td data-l="Hasil kegiatan">${x.hasil ? `<div class="ind-n hs" title="Klik untuk membaca lengkap">${esc(x.hasil)}</div>` : '<span class="dash">–</span>'}</td>
-      <td data-l="Dokumentasi"><span class="doc ${x.foto ? 'y' : ''}">Foto</span> <span class="doc ${x.dh ? 'y' : ''}">Daftar hadir</span></td></tr>`).join('');
-    list = `<div class="panel"><div class="panel-h"><h3>Daftar kegiatan</h3><span class="meta">${fN(L.length)} kegiatan${ST.kab !== 'Semua' ? ' · ' + ST.kab : ''}</span></div><div class="panel-b tw">
-      ${L.length ? `<table class="stack act-t"><colgroup><col><col style="width:96px"><col style="width:84px"><col style="width:96px"><col style="width:130px"><col style="width:30%"><col style="width:112px"></colgroup>
-      <thead><tr><th>Kegiatan</th><th>Tanggal</th><th>Kabupaten</th><th>Output</th><th>Status</th><th>Hasil kegiatan</th><th>Dokumentasi</th></tr></thead><tbody>${body}</tbody></table>`
+    const L = c.acts.filter(x => ST.kab === 'Semua' || x.kab === ST.kab);
+    const body = KAB.filter(k => L.some(x => x.kab === k)).map(k => {
+      const X = L.filter(x => x.kab === k).sort((p, q) => p.mulai.localeCompare(q.mulai) || p.id.localeCompare(q.id)), g = aggregate(X, TODAY);
+      return `<tr class="grp-h"><td class="lead" colspan="6">Kab. ${k}<span>${fN(X.length)} kegiatan${g.pesT ? ` · ${fN(g.pesT)} peserta (L ${fN(g.pesL)} · P ${fN(g.pesP)})` : ''}</span></td></tr>` +
+        X.map((x, i) => `<tr><td class="no hide-sm">${i + 1}</td><td class="lead"><span class="code">${esc(x.id)}</span> ${esc(x.nama)}<div class="act-l">${[x.lokasi, x.output].filter(Boolean).map(esc).join(' · ')}</div></td>
+        <td data-l="Tanggal">${dShort(x.mulai)}${x.selesai && x.selesai !== x.mulai ? ` – ${dShort(x.selesai)}` : ''}</td><td data-l="Peserta">${pesCell(x.peserta)}</td>
+        <td data-l="Hasil kegiatan">${x.hasil ? `<div class="ind-n hs" title="Klik untuk membaca lengkap">${esc(x.hasil)}</div>` : '<span class="dash">belum diisi</span>'}</td><td data-l="Status">${stBadge(x)}</td></tr>`).join('');
+    }).join('');
+    list = `<div class="panel"><div class="panel-h"><h3>Daftar kegiatan dan hasil</h3><span class="meta">${fN(L.length)} kegiatan${ST.kab !== 'Semua' ? ' · ' + ST.kab : ''} · klik hasil untuk membaca lengkap</span></div><div class="panel-b tw">
+      ${L.length ? `<table class="stack act-t"><colgroup><col style="width:34px"><col style="width:26%"><col style="width:92px"><col style="width:112px"><col><col style="width:124px"></colgroup>
+      <thead><tr><th class="hide-sm">No</th><th>Nama kegiatan</th><th>Tanggal</th><th>Jumlah peserta</th><th>Hasil kegiatan</th><th>Status</th></tr></thead><tbody>${body}</tbody></table>`
       : '<div class="empty"><b>Tidak ada kegiatan untuk pilihan ini.</b>Pilih minggu atau kabupaten lain.</div>'}</div></div>`;
   } else {
     const P = (c.perhatian || []).filter(x => ST.kab === 'Semua' || x.kab === ST.kab);
-    list = `<div class="panel"><div class="panel-h"><h3>Daftar kegiatan</h3><span class="meta">menunggu sinkron</span></div><div class="panel-b">
-      <div class="empty"><b>Daftar kegiatan per baris belum tersinkron.</b>Setelah secret Google Sheets diisi di GitHub, nama kegiatan, lokasi, status, hasil, dan kelengkapan dokumentasi dari tab Mimika, Nabire, dan Asmat tampil di sini.</div>
+    list = `<div class="panel"><div class="panel-h"><h3>Daftar kegiatan dan hasil</h3><span class="meta">menunggu sinkron</span></div><div class="panel-b">
+      <div class="empty"><b>Daftar kegiatan per baris belum tersinkron.</b>Setelah secret Google Sheets diisi di GitHub, nama kegiatan, tanggal, jumlah peserta (laki-laki dan perempuan), hasil kegiatan, dan status dari tab Mimika, Nabire, dan Asmat tampil di sini.</div>
       ${P.length ? `<div class="tw"><table class="stack"><thead><tr><th>Kegiatan perlu tindak lanjut (snapshot)</th><th>Jadwal</th><th>Status</th></tr></thead><tbody>${P.map(x => `<tr><td class="lead"><span class="code">${esc(x.id)}</span> ${esc(x.nama)}</td><td data-l="Jadwal">${dShort(x.jadwal)}</td><td data-l="Status"><span class="badge b-bad">${esc(x.status)}</span> <span class="badge b-bad">${esc(x.alasan)}</span></td></tr>`).join('')}</tbody></table></div>` : ''}</div></div>`;
   }
   const nx = c.next.filter(x => ST.kab === 'Semua' || x.kab === ST.kab).sort((p, q) => p.tanggal.localeCompare(q.tanggal));
@@ -208,8 +225,30 @@ function renderKegiatan() {
       : '<div class="empty"><b>Belum ada kegiatan terjadwal.</b>Kegiatan baru ditambahkan di Rencana Kerja Bulanan dan otomatis muncul di Weekly Update.</div>'}</div></div>`;
   const notes = [...(D.weekly.catatan || []).map(esc)];
   if (!c.live && SNAP() && SNAP().agenda_catatan) notes.push(esc(SNAP().agenda_catatan));
-  notes.push('Kolom PIC, kendala/tindak lanjut, dan link Drive dari Weekly Update tidak dipublikasikan di laporan ini.');
-  return head + `<div class="stack-y">${weekBar(true)}${snapNotice(c)}${kp}<div class="row r-57">${prog}${dok}</div>${list}${agenda}</div>` + note('Catatan data kegiatan', notes);
+  notes.push('Kolom PIC, kendala/tindak lanjut, dan link Drive per kegiatan dari Weekly Update tidak dipublikasikan di laporan ini.');
+  return head + `<div class="stack-y">${weekBar(true)}${snapNotice(c)}${kp}<div class="row r-57">${prog}${pes}</div>${list}${agenda}</div>` + note('Catatan data kegiatan', notes);
+}
+
+function renderDokumentasi() {
+  const W = weekInfo(ST.week), list = (D.weekly && D.weekly.dokumentasi) || [], d = WU.dokFor(list, W.mon, weekList()[0]);
+  const head = `<div class="ph"><div><h2>Dokumentasi kegiatan</h2><div class="sub">${esc(W.label)} · ${esc(W.range)}</div></div>${srcTag('Sumber: Google Drive · folder dokumentasi mingguan')}</div>`;
+  let body;
+  if (!d) body = `<div class="panel"><div class="panel-b"><div class="empty"><b>Belum ada folder dokumentasi untuk minggu ini.</b>Tambahkan satu baris di tab <code>Dokumentasi</code> pada sheet Weekly Update: tanggal Senin minggu itu, link folder Google Drive, dan keterangan.</div></div></div>`;
+  else {
+    const open = `https://drive.google.com/drive/folders/${encodeURIComponent(d.id)}`;
+    const seg = `<div class="seg" role="group" aria-label="Tampilan folder">${[['grid', 'Galeri'], ['list', 'Daftar']].map(([v, l]) => `<button data-dok="${v}" aria-pressed="${ST.dokV === v}">${l}</button>`).join('')}</div>`;
+    /* iframe hanya dibuat saat bagian ini dibuka, supaya tidak dimuat ulang ketika bagian lain berubah */
+    const frame = ST.sec === 'dokumentasi'
+      ? `<div class="drive-frame" tabindex="0" aria-label="Isi folder dokumentasi, bisa digeser"><iframe src="https://drive.google.com/embeddedfolderview?id=${encodeURIComponent(d.id)}#${ST.dokV}" title="Folder dokumentasi ${esc(d.judul || W.label)}" loading="lazy" referrerpolicy="no-referrer"></iframe></div>`
+      : '<div class="drive-frame idle"></div>';
+    body = `<div class="panel"><div class="panel-h"><h3>${esc(d.judul || 'Folder dokumentasi ' + W.label)}</h3><div class="dok-act">${seg}<a class="ibtn" href="${open}" target="_blank" rel="noopener noreferrer">Buka di Google Drive ↗</a></div></div>
+      <div class="panel-b">${frame}<p class="dok-help">Geser di dalam kotak untuk melihat semua file. Klik foto atau dokumen untuk membukanya di Google Drive. Bila kotak menampilkan halaman masuk Google, folder belum dibagikan untuk pembaca laporan.</p><p class="dok-print">Folder dokumentasi: ${esc(open)}</p></div></div>`;
+  }
+  const notes = ['Isi folder dibaca langsung dari Google Drive saat halaman dibuka, jadi foto baru di folder langsung terlihat.',
+    'Agar tampil untuk PTFI, folder perlu dibagikan "Siapa saja yang memiliki link · Viewer". Folder yang hanya bisa dibuka akun WVI akan menampilkan halaman masuk Google.',
+    'Pastikan foto di folder sudah sesuai persetujuan dokumentasi dan kebijakan perlindungan anak sebelum folder dibagikan.',
+    'Link folder disimpan di data terenkripsi, tidak tertulis di repository publik.'];
+  return head + `<div class="stack-y">${weekBar(false)}${body}</div>` + note('Catatan dokumentasi', notes.map(esc));
 }
 
 function renderPartisipan() {
@@ -294,7 +333,7 @@ function mttNotes(rows) {
 }
 
 /* ---------------- kerangka: navigasi, tema, presentasi ---------------- */
-const RND = { cover: renderCover, ringkasan: renderRingkasan, kegiatan: renderKegiatan, partisipan: renderPartisipan, indikator: renderIndikator, penutup: renderPenutup };
+const RND = { cover: renderCover, ringkasan: renderRingkasan, kegiatan: renderKegiatan, dokumentasi: renderDokumentasi, partisipan: renderPartisipan, indikator: renderIndikator, penutup: renderPenutup };
 function render() {
   $('#tabs').innerHTML = SECTIONS.map(s => { const n = NUM(s.id); return `<button class="tab" role="tab" data-sec="${s.id}" aria-selected="${ST.sec === s.id}">${n ? `<span class="n">${n}</span>` : ''}${s.t}</button>`; }).join('');
   $('#main').innerHTML = SECTIONS.map(s => {
@@ -318,6 +357,7 @@ function startPresent() { ST.sec = 'cover'; document.body.classList.add('present
 function stopPresent() { document.body.classList.remove('present'); if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); render(); }
 
 function start() {
+  const im = new Image(); im.onload = () => { LOGO_OK = true; render(); }; im.onerror = () => { LOGO_OK = false; }; im.src = './assets/logo-wvi.png';
   const ws = weekList(), s = SNAP();
   ST.week = ACTS().length ? defaultWeek(ACTS(), TODAY) : (s && s.minggu) || monday(TODAY);
   $('#per').innerHTML = ws.map(w => { const W = weekInfo(w); return `<option value="${w}">${W.label} (${W.range})</option>`; }).join('');
@@ -337,11 +377,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && document.body.classList.contains('present')) { document.body.classList.remove('present'); render(); } });
   document.addEventListener('click', e => {
     if (!D) return;
-    const t = e.target.closest('[data-sec],[data-wk],[data-kab],[data-btt],.ind-n'); if (!t) return;
+    const t = e.target.closest('[data-sec],[data-wk],[data-kab],[data-btt],[data-dok],.ind-n'); if (!t) return;
     if (t.dataset.sec) setSec(t.dataset.sec);
     else if (t.dataset.wk !== undefined) setWeek(t.dataset.wk);
     else if (t.dataset.kab) { ST.kab = t.dataset.kab; render(); }
     else if (t.dataset.btt) { ST.bttM = t.dataset.btt; render(); }
+    else if (t.dataset.dok) { ST.dokV = t.dataset.dok; render(); }
     else t.classList.toggle('open');
   });
   document.addEventListener('keydown', e => {

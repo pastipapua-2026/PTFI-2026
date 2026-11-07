@@ -9,10 +9,11 @@ Setup pertama kali: lihat **[PANDUAN_SETUP.md](PANDUAN_SETUP.md)**.
 | Bagian | Sumber |
 |---|---|
 | Sampul | minggu laporan (Senin–Minggu) |
-| 1 · Ringkasan | KPI minggu ini, highlight seluruh wilayah, highlight per kabupaten |
-| 2 · Kegiatan | Weekly Update, tab Mimika, Nabire, Asmat: progres, kelengkapan dokumentasi, daftar kegiatan, agenda minggu berikutnya |
-| 3 · Partisipan | BTT Rekap, tab Dashboard (agregat) |
-| 4 · Capaian indikator | MTT_PASTI_Papua_Y26, tab MTT_Y26_Long (YTD) |
+| 1 · Ringkasan | KPI minggu ini, highlight seluruh wilayah (narasi hasil kegiatan + jumlah peserta terpilah), highlight per kabupaten |
+| 2 · Kegiatan | Weekly Update, tab Mimika, Nabire, Asmat: progres, peserta per kabupaten, daftar kegiatan dan hasil per kabupaten, agenda minggu berikutnya |
+| 3 · Dokumentasi | Folder Google Drive mingguan (tab Dokumentasi di Weekly Update), tampil dan bisa digeser di dalam laporan |
+| 4 · Partisipan | BTT Rekap, tab Dashboard (agregat) |
+| 5 · Capaian indikator | MTT_PASTI_Papua_Y26, tab MTT_Y26_Long (YTD) |
 | Penutup | |
 
 Highlight disusun dari angka dengan aturan tetap, tanpa teks manual. Saat data baru masuk ke sheet, highlight ikut berubah pada sinkron berikutnya.
@@ -32,6 +33,7 @@ ID file sheet dan kode akses disimpan sebagai GitHub Secrets. Kolom PIC, tujuan,
 - `assets/dashboard.css` adalah PASTI-Papua Dashboard Design System, disalin utuh. `assets/weekly.css` berisi komponen tambahan.
 - `assets/logic.js` memuat perhitungan minggu, status, agregasi, highlight, dan dekripsi. Tidak bergantung pada DOM, jadi bisa diuji.
 - `assets/app.js` membangun tampilan, grafik SVG, mode presentasi, dan cetak.
+- `assets/logo-wvi.png` (diunggah terpisah) adalah logo Wahana Visi Indonesia.
 - `scripts/sync_weekly.py` membaca sheet dan menulis data terenkripsi.
 - `.github/workflows/weekly-update.yml` menjalankan sinkron, uji, dan publikasi.
 - `tests/` berisi uji Python (pembacaan sheet, filter privasi, enkripsi) dan uji Node (logika dan dekripsi).

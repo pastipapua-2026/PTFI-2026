@@ -22,13 +22,29 @@ Di GitHub web, buka file, lalu ikon titik tiga → **Delete file**. Untuk folder
 
 ## 2. Unggah isi ZIP
 
-Unggah **isi** folder `PTFI-2026` ke root repository, branch `main`. Jangan unggah file ZIP-nya.
+1. Ekstrak ZIP, lalu buka folder `PTFI-2026` di File Explorer.
+2. Di GitHub buka **Add file → Upload files**.
+3. **Seret (drag) folder dan file sekaligus** dari File Explorer ke halaman upload: folder `assets`, `data`, `scripts`, `tests`, `.github`, dan semua file di luar folder.
+4. Jangan pakai tombol **"choose your files"**. Tombol itu hanya bisa memilih file, sehingga isi folder tidak ikut ter-upload.
+5. Commit ke branch `main`.
 
-Lewat **Add file → Upload files**, folder tersembunyi `.github` sering tidak ikut terpilih. Periksa setelah commit bahwa file `.github/workflows/weekly-update.yml` ada. Kalau belum ada, buat lewat **Add file → Create new file**, beri nama `.github/workflows/weekly-update.yml`, lalu tempel isinya.
+Setelah commit, cek di halaman repository:
+
+| Folder | Harus berisi |
+|---|---|
+| `assets/` | `app.js`, `logic.js`, `weekly.css`, `dashboard.css`, `favicon.svg` |
+| `data/` | `weekly-update.enc.json` |
+| `.github/workflows/` | `weekly-update.yml` saja (dua workflow lama sudah dihapus) |
+
+Kalau folder `assets` belum lengkap, halaman kode akses akan menampilkan pesan merah yang menyebut berkas yang hilang.
+
+Kalau folder `.github` tidak ikut, buat filenya lewat **Add file → Create new file**. Beri nama `.github/workflows/weekly-update.yml`, lalu tempel isi file yang sama dari ZIP.
 
 ## 3. Aktifkan GitHub Pages
 
 **Settings → Pages → Build and deployment → Source: GitHub Actions.**
+
+Kalau Source masih **Deploy from a branch**, ganti ke **GitHub Actions**. Kalau tidak, langkah publikasi di workflow baru akan gagal.
 
 ## 4. Isi secrets
 
@@ -54,15 +70,41 @@ Buka **Actions → Weekly Update · sinkron dan publikasi → Run workflow**.
 
 Buka situs, lalu masuk dengan kode akses baru. Sebelum langkah ini selesai, situs menampilkan snapshot 7 Nov 2026 yang masih memakai kode lama.
 
+## 6. Siapkan Google Sheet Weekly Update (sekali)
+
+**a. Kolom jumlah peserta.** Di akhir tab **Mimika**, **Nabire**, dan **Asmat** (setelah kolom terakhir yang ada), tambahkan tiga kolom dengan judul di baris header yang sama dengan "Nama Kegiatan":
+
+| Peserta Laki-laki | Peserta Perempuan | Total Peserta |
+|---|---|---|
+
+- Isi angka untuk setiap kegiatan yang sudah dilaksanakan. Total boleh dikosongkan; laporan menjumlahkan laki-laki + perempuan.
+- Kolom ditambahkan di akhir supaya rumus dan IMPORTRANGE yang sudah ada tidak bergeser.
+- Bila kolom ini kosong, laporan mencoba membaca angka yang ditulis jelas di **Hasil Kegiatan** (misalnya "Laki-laki: 4, Perempuan: 2"). Angka seperti ini diberi tanda **"dari teks"**. Angka resmi tetap sebaiknya diisi di kolom.
+
+**b. Tab Dokumentasi.** Buat tab baru bernama persis **Dokumentasi** dengan header di baris 1:
+
+| Minggu (Senin) | Link folder Drive | Keterangan |
+|---|---|---|
+| 02/11/2026 | https://drive.google.com/drive/folders/… | Week 1 November |
+
+- Tambahkan **satu baris setiap minggu** (jangan menimpa baris lama), supaya minggu-minggu sebelumnya tetap punya folder masing-masing.
+- Tanggal boleh tanggal mana saja di minggu itu; laporan menyesuaikan ke hari Senin.
+- Tempel link sebagai **teks biasa**, bukan chip/kartu Drive.
+- Folder perlu dibagikan **"Siapa saja yang memiliki link · Viewer"** agar isinya tampil untuk PTFI. Pastikan foto di folder sudah sesuai persetujuan dokumentasi dan kebijakan perlindungan anak.
+
+## 7. Logo Wahana Visi Indonesia
+
+Unggah file logo resmi ke folder `assets` dengan nama persis **`logo-wvi.png`** (PNG latar transparan, tinggi minimal 120 px). Logo tampil di halaman kode akses, header, sampul, dan penutup. Selama file belum ada, posisi logo menampilkan tulisan "Wahana Visi Indonesia".
+
 ## Cara kerja
 
 Data hanya mengalir satu arah, dari sheet ke laporan:
 
-- **Weekly Update**, tab Mimika, Nabire, dan Asmat: kegiatan, tanggal, status, hasil, dan apakah link foto serta daftar hadir sudah terisi.
+- **Weekly Update**, tab Mimika, Nabire, dan Asmat: kegiatan, tanggal, status, hasil kegiatan, dan jumlah peserta (laki-laki, perempuan, total). Tab Dokumentasi: link folder Drive per minggu.
 - **BTT Rekap**, tab Dashboard: angka agregat partisipan. Tab Database (data per orang) tidak dibaca.
 - **MTT_Y26**, tab MTT_Y26_Long: target dan capaian YTD per indikator per bulan.
 
-Yang **tidak pernah** dipublikasikan: kolom PIC, tujuan, kendala/tindak lanjut, link Drive, dan data per orang.
+Yang **tidak pernah** dipublikasikan: kolom PIC, tujuan, kendala/tindak lanjut, link Drive per kegiatan, dan data per orang. Link folder dokumentasi mingguan hanya disimpan di dalam data terenkripsi.
 
 Data yang terpublikasi disimpan terenkripsi (AES-256-GCM) di `data/weekly-update.enc.json`. Isinya hanya bisa dibuka dengan kode akses.
 
@@ -72,7 +114,8 @@ Kalau sinkron gagal (sheet tidak bisa dibaca atau struktur kolom berubah), lapor
 
 - **Tanggal Mulai wajib diisi.** Kegiatan tanpa tanggal tidak masuk minggu mana pun.
 - **Status dipilih dari daftar:** Rencana, Sedang Diimplementasikan, Selesai, Pending, atau Batal.
-- **Kolom Hasil Kegiatan tampil di laporan PTFI.** Tulis ringkas, tanpa nama penerima manfaat atau anak.
+- **Kolom Hasil Kegiatan tampil di laporan PTFI** dan kalimat pertamanya dipakai untuk highlight. Awali dengan hasil terpenting, tulis ringkas, tanpa nama penerima manfaat atau anak.
+- **Isi jumlah peserta** (laki-laki dan perempuan) untuk setiap kegiatan yang selesai.
 - **Nama kolom header jangan diubah.** Kolom dikenali dari namanya, jadi menambah kolom baru tidak apa-apa.
 
 ## Mengganti kode akses

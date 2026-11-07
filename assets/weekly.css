@@ -60,6 +60,7 @@ body.locked .top,body.locked main,body.locked .pager{visibility:hidden}
 .doc.y{color:var(--ink);border:1px solid var(--line);background:var(--soft)}
 .doc.y::before{content:"✓ "}
 .prog-t td{vertical-align:middle}
+.prog-t .pbar .t{width:42px}.prog-t th,.prog-t td{padding-left:6px;padding-right:6px}
 
 /* baris per kabupaten & kelompok usia */
 .grp.kb span small{display:block;font-size:11px;color:var(--mut);font-weight:500;margin-top:2px}
@@ -81,14 +82,69 @@ body.locked .top,body.locked main,body.locked .pager{visibility:hidden}
 /* sampul */
 .cover .cv-r{margin-top:6px;font-size:14px;font-weight:600;color:#c0cad8}
 
+/* ---------- kartu: gradasi halus + gerak saat diarahkan (permintaan Bre, 7 Nov 2026) ---------- */
+:root{--grad-end:color-mix(in srgb,var(--card) 62%,var(--or4))}
+[data-theme="dark"]{--grad-end:color-mix(in srgb,var(--card) 70%,var(--soft))}
+.panel,.ph.pg-head{background:linear-gradient(155deg,var(--card) 0%,var(--card) 48%,var(--grad-end) 100%);transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+.panel:hover,.ph.pg-head:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(24,35,56,.10);border-color:var(--or3)}
+.panel.kpi:hover{transform:translateY(-5px)}
+.kpi.lead{background:linear-gradient(150deg,#26375a 0%,#182338 55%,#0f1828 100%)}
+.kpi.lead:hover{box-shadow:0 16px 34px rgba(24,35,56,.32);border-color:#26375a}
+.panel.fbar:hover,.gate-box:hover{transform:none}
+[data-theme="dark"] .panel:hover,[data-theme="dark"] .ph.pg-head:hover{box-shadow:0 14px 30px rgba(0,0,0,.45)}
+.cover{transition:transform .25s ease,box-shadow .25s ease;background:linear-gradient(150deg,#22314f 0%,#182338 50%,#0f1828 100%)}
+.cover:hover{transform:translateY(-3px);box-shadow:0 18px 40px rgba(24,35,56,.30)}
+
+/* ---------- logo Wahana Visi Indonesia ---------- */
+.org{display:inline-flex;align-items:center;flex:none;background:#fff;border-radius:8px;padding:5px 9px;border:1px solid var(--line)}
+.org img{display:block;height:30px;max-height:none;width:auto}
+.org .org-txt{display:none;font-size:11px;font-weight:800;color:#182338;letter-spacing:.2px;white-space:nowrap}
+.org.nologo img{display:none}.org.nologo .org-txt{display:inline}
+.h-org{margin-left:12px;padding-left:12px;border-left:1px solid var(--line);background:transparent;border-top:0;border-right:0;border-bottom:0;border-radius:0}
+.h-org img{height:32px;background:#fff;border-radius:6px;padding:3px 6px}
+.h-org.nologo .org-txt{color:var(--ink)}
+.g-org{align-self:flex-start;margin-bottom:4px}
+.g-org img{height:38px}
+.cv-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.cv-org{border:0;padding:8px 12px;border-radius:10px}
+.cv-org img{height:40px}
+
+/* ---------- daftar kegiatan bergaya laporan mingguan ---------- */
+.act-t td.no{color:var(--mut);font-size:11.5px;font-weight:700}
+.act-t tr.grp-h td{background:var(--soft);font-weight:800;font-size:12.5px;padding:9px 10px;border-bottom:2px solid var(--or3)}
+.act-t tr.grp-h td span{font-weight:600;color:var(--mut);margin-left:10px;font-size:11.5px}
+.act-t tbody tr.grp-h:hover td{background:var(--soft)}
+.act-t .pes-t{font-size:15px;font-weight:800}
+.pes{display:inline-block;text-align:left}
+@media (max-width:760px){.pes{text-align:right}}
+.ind-n.hs{-webkit-line-clamp:4}
+.src-t{display:inline-block;margin-top:3px;font-size:10px;font-weight:700;color:var(--warn-ink);background:var(--warn-soft);border-radius:4px;padding:1px 6px}
+.sexbar.mini{height:5px;margin-top:5px}
+.grp.kb>div:nth-child(2){display:flex;flex-direction:column}
+
+/* ---------- dokumentasi: folder Google Drive yang bisa digeser ---------- */
+.dok-act{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.dok-act a.ibtn{text-decoration:none}
+.drive-frame{height:560px;border:1px solid var(--line);border-radius:10px;overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;resize:vertical}
+.drive-frame iframe{display:block;width:100%;height:100%;min-height:540px;border:0;background:#fff}
+.drive-frame.idle{background:var(--soft)}
+.dok-help{margin:10px 0 0;font-size:12px;color:var(--mut)}
+.dok-print{display:none}
+
 /* responsif */
 @media (max-width:1100px){.r-3{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:760px){
-  .ctrl{width:100%;flex-wrap:nowrap}.ctrl .fxs{flex:1 1 auto;min-width:0}#per{width:100%;max-width:none}
+  .h-org{display:none}
+  .drive-frame{height:460px}.drive-frame iframe{min-height:440px}
+  .act-t tr.grp-h{display:block}.act-t tr.grp-h td{display:block;text-align:left}.act-t tr.grp-h td span{display:block;margin:2px 0 0}
+  .cv-org img{height:30px}
+  .ctrl{width:100%;flex-wrap:nowrap}.ctrl .fxs{flex:1 1 auto;min-width:0}.ctrl>*:not(.fxs){flex:none}#per{width:100%;max-width:none}
   .fbar .chips{width:100%}
   .act-t{table-layout:auto}
   table.stack td .ind-n.hs{text-align:left}
   table.stack td .doc{margin-bottom:0}
   .grp.kb span small{display:none}
 }
-@media print{#gate{display:none}.fbar{display:none!important}.notice{break-inside:avoid}}
+@media print{#gate{display:none}.fbar{display:none!important}.notice{break-inside:avoid}
+  .panel,.ph.pg-head{background:#fff!important;transform:none!important}.drive-frame{display:none}.dok-help{display:none}.dok-print{display:block;font-size:12px}}
+@media (prefers-reduced-motion:reduce){.panel:hover,.ph.pg-head:hover,.cover:hover{transform:none}}

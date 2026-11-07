@@ -1,5 +1,14 @@
 # Perubahan
 
+## 2.1.0 · 7 November 2026
+
+- Highlight program dan per kabupaten kini berupa narasi dari kolom **Hasil Kegiatan**, lengkap dengan jumlah peserta tiap kegiatan dan pemilahan laki-laki/perempuan.
+- Jumlah peserta dibaca dari kolom baru **Peserta Laki-laki / Peserta Perempuan / Total Peserta**. Bila kosong, angka yang ditulis jelas di teks Hasil dipakai dan diberi tanda "dari teks".
+- Panel dan kolom **kelengkapan dokumentasi dihapus**. Diganti panel peserta per kabupaten dan tabel kegiatan bergaya laporan mingguan (per kabupaten: kegiatan, tanggal, jumlah peserta, hasil, status).
+- Bagian baru **Dokumentasi**: folder Google Drive mingguan tampil di dalam laporan dan bisa digeser (galeri atau daftar). Link diatur lewat tab Dokumentasi di sheet Weekly Update.
+- Slot logo **Wahana Visi Indonesia** (`assets/logo-wvi.png`) di halaman kode akses, header, sampul, dan penutup.
+- Semua kartu memakai gradasi halus dan bergerak naik saat diarahkan kursor (nonaktif bila pengguna memilih kurangi animasi).
+
 ## 2.0.0 · 7 November 2026 · Weekly Update PTFI
 
 - Dashboard 8 slide (data contoh, belum tersambung) diganti menjadi laporan mingguan **"PASTI-Papua · Weekly Update PTFI"**: Sampul, Ringkasan, Kegiatan, Partisipan, Capaian indikator, dan Penutup.

@@ -14,8 +14,8 @@ spec.loader.exec_module(sync)
 
 
 class FakeResponse:
-    def __init__(self, values):
-        self.status_code, self._v = 200, values
+    def __init__(self, values, status=200):
+        self.status_code, self._v = status, values
 
     def json(self):
         return {"values": self._v}
@@ -29,6 +29,8 @@ class FakeSession:
 
     def get(self, url, params=None, timeout=None):
         tab = sync.urllib.parse.unquote(url.rsplit("/", 1)[1])
+        if tab not in self.tabs:
+            return FakeResponse([], 400)
         grid = self.tabs[tab]
         raw = params["valueRenderOption"] == "UNFORMATTED_VALUE"
         return FakeResponse([[(c[0] if raw else c[1]) if isinstance(c, tuple) else c for c in row] for row in grid])
@@ -155,6 +157,32 @@ class WeeklyTests(unittest.TestCase):
         src = sync.ApiSource("x", "Weekly Update", FakeSession(bad))
         with self.assertRaisesRegex(sync.SyncError, "Nabire: kolom 'status'"):
             sync.load_weekly(src)
+
+
+class PesertaDokTests(unittest.TestCase):
+    def test_participants_from_text_only_when_unambiguous(self):
+        self.assertEqual(sync.peserta_teks("Laki-laki: 4 orang, Perempuan: 2 orang Total: 6 orang")[0], {"l": 4, "p": 2, "t": 6, "src": "teks"})
+        self.assertEqual(sync.peserta_teks("Keseluruhan: 9 Kader Laki-Laki: 2 Perempuan: 7")[0]["t"], 9)
+        self.assertEqual(sync.peserta_teks("Bapak Laki-Laki: 30. AoC Laki-Laki: 11 Perempuan: 3"), (None, "ganda"))
+        self.assertEqual(sync.peserta_teks("Laki-laki 4, Perempuan 2, Total 9"), (None, "beda"))
+        self.assertEqual(sync.peserta_teks("75% peserta paham materi"), (None, None))
+
+    def test_participant_columns_take_priority(self):
+        wh = WH + ["Peserta Laki-laki", "Peserta Perempuan", "Total Peserta"]
+        row = act(1, "Mimika", "Kelas Ibu Hamil", 3, "Selesai", "Laki-laki: 1 Perempuan: 1") + [3, 12, ""]
+        tab = weekly_tab("Mimika", [row]); tab[4] = wh
+        src = sync.ApiSource("x", "Weekly Update", FakeSession({**WEEKLY, "Mimika": tab}))
+        a = sync.load_weekly(src)["kegiatan"][0]
+        self.assertEqual(a["peserta"], {"l": 3, "p": 12, "t": 15, "src": "kolom"})
+
+    def test_documentation_tab(self):
+        dok = [["Minggu (Senin)", "Link folder", "Keterangan"],
+               [D(2026, 11, 4), "https://drive.google.com/drive/u/0/folders/1AbCdEfGhIjKlMnOpQrStUvWxYz012345", "Week 1 November"],
+               ["", "folder tanpa link", ""]]
+        src = sync.ApiSource("x", "Weekly Update", FakeSession({**WEEKLY, "Dokumentasi": dok}))
+        w = sync.load_weekly(src)
+        self.assertEqual(w["dokumentasi"], [{"minggu": "2026-11-02", "id": "1AbCdEfGhIjKlMnOpQrStUvWxYz012345", "judul": "Week 1 November"}])
+        self.assertTrue(any("tab Dokumentasi" in c.lower() or "Dokumentasi belum" in c for c in sync.load_weekly(sources()["weekly"])["catatan"]))
 
 
 class BttMttTests(unittest.TestCase):

@@ -8,7 +8,8 @@ Sumber (ID file disimpan sebagai GitHub Secrets, tidak pernah ditulis di reposit
 Hasil: data/weekly-update.enc.json, terenkripsi AES-256-GCM dengan kunci dari DASHBOARD_ACCESS_CODE
 (PBKDF2-SHA256). Dashboard mendekripsi di browser setelah kode akses dimasukkan.
 
-Yang tidak pernah dipublikasikan: nama PIC, kendala/tindak lanjut, link Drive, data per orang dari BTT.
+Yang tidak pernah dipublikasikan: nama PIC, kendala/tindak lanjut, link Drive per kegiatan, data per orang dari BTT.
+Folder dokumentasi mingguan (tab "Dokumentasi" di Weekly Update) hanya disimpan sebagai ID folder di dalam data terenkripsi.
 
 Cara membaca sheet:
   - Bila secret GOOGLE_SHEETS_SERVICE_ACCOUNT ada: Google Sheets API (file boleh dibatasi ke akun tim,
@@ -34,6 +35,7 @@ WIT = timezone(timedelta(hours=9))
 ITER = 250_000
 TAB_BTT = os.environ.get("BTT_TAB", "Dashboard")
 TAB_MTT = os.environ.get("MTT_TAB", "MTT_Y26_Long")
+TAB_DOK = os.environ.get("DOK_TAB", "Dokumentasi")
 HASIL_MAX = 700
 
 
@@ -268,6 +270,9 @@ WEEKLY_FIELDS = [
     ("foto", r"^(?!.*kelengkapan).*(dokumentasi|foto)( \(.*\))?$"),
     ("dh", r"daftar hadir( kegiatan)?$"),
     ("upd", r"(tgl|tanggal)\.? ?update$"),
+    ("l", r"(^|\s)(peserta |jumlah )?(laki-laki|laki laki|pria)( \(l\))?$"),
+    ("p", r"(^|\s)(peserta |jumlah )?(perempuan|wanita)( \(p\))?$"),
+    ("tot", r"((total|jumlah) (peserta|hadir|kehadiran)|(^|\s)total)$"),
 ]
 STATUS_RULES = [  # urutan penting; sama dengan assets/logic.js
     ("batal", r"batal|cancel|dihapus"),
@@ -309,6 +314,33 @@ def clean_text(s, limit=None):
     return s
 
 
+def peserta_teks(text):
+    """Jumlah peserta yang ditulis eksplisit di teks Hasil, mis. 'Laki-laki: 4 orang, Perempuan: 2 orang, Total: 6'.
+    Hanya dipakai bila kolom peserta kosong. Bila satu label muncul lebih dari sekali, angka tidak dipakai (tidak dijumlahkan)."""
+    t = text or ""
+    L = re.findall(r"\blaki[\s-]*laki\b\s*[:=]?\s*(\d{1,4})", t, re.I)
+    P = re.findall(r"\bperempuan\b\s*[:=]?\s*(\d{1,4})", t, re.I)
+    T = re.findall(r"\b(?:total|keseluruhan|jumlah peserta)\b\s*[:=]?\s*(\d{1,4})", t, re.I)
+    if not (L or P or T):
+        return None, None
+    if len(L) > 1 or len(P) > 1 or len(T) > 1:
+        return None, "ganda"
+    l, p = (int(L[0]) if L else None), (int(P[0]) if P else None)
+    tot = int(T[0]) if T else (l or 0) + (p or 0)
+    if T and l is not None and p is not None and tot != l + p:
+        return None, "beda"
+    return {"l": l, "p": p, "t": tot, "src": "teks"}, None
+
+
+def peserta_kolom(l, p, t):
+    if l is None and p is None and t is None:
+        return None
+    l, p, t = (int(round(x)) if x is not None else None for x in (l, p, t))
+    if t is None:
+        t = (l or 0) + (p or 0)
+    return {"l": l, "p": p, "t": t, "src": "kolom"}
+
+
 def find_header_row(src, tab):
     cells = src.column_cells(tab, "A", "C")[:15]
     for i, row in enumerate(cells):
@@ -323,7 +355,7 @@ def parse_weekly_tab(tab, labels, rows):
         if need not in m:
             raise SyncError(f"Weekly Update · tab {tab}: kolom '{need}' tidak ditemukan (struktur sheet berubah?)")
     get = lambda r, k: r[m[k]] if k in m and m[k] < len(r) else None
-    acts, notes = [], {"tanpa_tanggal": 0, "kab_beda": 0, "status_lain": set(), "id_ganda": set()}
+    acts, notes = [], {"tanpa_tanggal": 0, "kab_beda": 0, "status_lain": set(), "id_ganda": set(), "peserta_cek": [], "tanpa_peserta": 0}
     seen = set()
     for r in rows:
         nama = txt(get(r, "nama"))
@@ -343,11 +375,19 @@ def parse_weekly_tab(tab, labels, rows):
             if rid in seen:
                 notes["id_ganda"].add(rid)
             seen.add(rid)
+        hasil_raw = txt(get(r, "hasil"))
+        pes = peserta_kolom(num(get(r, "l")), num(get(r, "p")), num(get(r, "tot")))
+        if pes is None:
+            pes, why = peserta_teks(hasil_raw)
+            if why:
+                notes["peserta_cek"].append(rid or nama[:30])
+        if pes is None and mulai and status_key(status) == "selesai":
+            notes["tanpa_peserta"] += 1
         acts.append({
-            "id": rid, "kab": tab, "nama": clean_text(nama, 220),
+            "id": rid, "kab": tab, "nama": clean_text(nama, 220), "peserta": pes,
             "mulai": mulai.isoformat() if mulai else "", "selesai": selesai.isoformat() if selesai else "",
             "output": clean_text(txt(get(r, "output")), 60), "lokasi": clean_text(txt(get(r, "lokasi")), 120),
-            "status": status[:60], "hasil": clean_text(txt(get(r, "hasil")), HASIL_MAX),
+            "status": status[:60], "hasil": clean_text(hasil_raw, HASIL_MAX),
             "foto": bool(txt(get(r, "foto"))), "dh": bool(txt(get(r, "dh"))), "upd": upd.isoformat() if upd else "",
         })
     return acts, notes
@@ -368,9 +408,46 @@ def load_weekly(src):
             catatan.append(f"{tab}: status tidak baku ({', '.join(sorted(n['status_lain']))}); ditampilkan apa adanya.")
         if n["id_ganda"]:
             catatan.append(f"{tab}: ID ganda {', '.join(sorted(n['id_ganda']))}.")
+        if n["tanpa_peserta"]:
+            catatan.append(f"{tab}: {n['tanpa_peserta']} kegiatan Selesai belum mencatat jumlah peserta (kolom Peserta Laki-laki/Perempuan/Total, atau tulis di Hasil).")
+        if n["peserta_cek"]:
+            catatan.append(f"{tab}: jumlah peserta di teks Hasil {', '.join(n['peserta_cek'][:6])} tidak dipakai karena labelnya ganda atau totalnya tidak sama dengan laki-laki + perempuan; isi kolom peserta.")
     if not acts:
         raise SyncError("Weekly Update: tidak ada kegiatan terbaca dari tab Mimika, Nabire, dan Asmat")
-    return {"kegiatan": acts, "catatan": catatan, "snapshot": None}
+    dok, note = load_dok(src)
+    if note:
+        catatan.append(note)
+    return {"kegiatan": acts, "catatan": catatan, "snapshot": None, "dokumentasi": dok}
+
+
+FOLDER_RE = re.compile(r"drive\.google\.com/(?:drive/(?:u/\d+/)?(?:mobile/)?folders/|open\?id=)([A-Za-z0-9_-]{10,})")
+
+
+def load_dok(src, tab=TAB_DOK):
+    """Tab opsional 'Dokumentasi' di Weekly Update: satu baris per minggu = tanggal (Senin) · link folder Drive · keterangan."""
+    try:
+        _, rows = src.table(tab, 1)
+    except SyncError:
+        return [], f"Tab {tab} belum ada di sheet Weekly Update, jadi bagian Dokumentasi kosong."
+    out = []
+    for r in rows:
+        fid, d, judul = None, None, ""
+        for c in r:
+            s = txt(c)
+            m = FOLDER_RE.search(s)
+            if m:
+                fid = fid or m[1]
+                continue
+            dd = to_date(c)
+            if dd and not d:
+                d = dd
+                continue
+            if s and not judul:
+                judul = s[:80]
+        if fid:
+            mon = (d - timedelta(days=d.weekday())).isoformat() if d else ""
+            out.append({"minggu": mon, "id": fid, "judul": judul})
+    return out, ("" if out else f"Tab {tab} belum berisi link folder Google Drive (tempel link sebagai teks biasa).")
 
 
 # ---------------------------------------------------------------- BTT Rekap · Dashboard
